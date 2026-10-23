@@ -12,7 +12,7 @@ namespace SuyunCraft
         public static string BundleDirectory()
         {
             string local = Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ai-mod");
-            return File.Exists(Path.Combine(local, "dist", "suyuncraft-ai-0.1.0.jar")) ? local : Path.Combine(Config.BaseDir, "ai-mod");
+            return File.Exists(Path.Combine(local, "dist", "suyuncraft-ai-0.3.0.jar")) ? local : Path.Combine(Config.BaseDir, "ai-mod");
         }
 
         public static string GameDirectory(Config cfg, string version)
@@ -27,11 +27,35 @@ namespace SuyunCraft
         public static string Install(Config cfg, string version, string bundle = null)
         {
             string root = GameDirectory(cfg, version); bundle = bundle ?? BundleDirectory();
-            string jar = Path.Combine(bundle, "dist", "suyuncraft-ai-0.1.0.jar");
+            string jar = Path.Combine(bundle, "dist", "suyuncraft-ai-0.3.0.jar");
             string api = Path.Combine(bundle, "dist", "fabric-api-0.106.0+1.21.1.jar");
             if (!File.Exists(jar) || !File.Exists(api)) throw new FileNotFoundException("AI 模组尚未构建，请先运行 ai-mod/build-mod.ps1。");
-            string destination = FileSafety.Under(root, "mods/suyuncraft-ai-0.1.0.jar");
-            FileSafety.WriteViaTemp(destination, ".tmp", t => File.Copy(jar, t));
+            string destination = FileSafety.Under(root, "mods/suyuncraft-ai.jar");
+            Directory.CreateDirectory(Path.GetDirectoryName(destination));
+            // Quarantine previous versioned files to avoid duplicate mod IDs on upgrade.
+            var migrated = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>>();
+            try
+            {
+                foreach (string file in Directory.EnumerateFiles(Path.GetDirectoryName(destination), "suyuncraft-ai-*.jar"))
+                {
+                    string safe = FileSafety.Under(root, "mods/" + Path.GetFileName(file));
+                    using (var zip = ZipFile.OpenRead(safe))
+                    {
+                        var metadata = new FabricModMetadataReader().Read(zip);
+                        if (metadata == null || metadata.Id != "suyuncraft_ai") continue;
+                    }
+                    string saved = FileSafety.Under(root, "suyuncraft-ai-backups/" + Guid.NewGuid().ToString("N") + "/" + Path.GetFileName(file));
+                    Directory.CreateDirectory(Path.GetDirectoryName(saved));
+                    File.Move(safe, saved);
+                    migrated.Add(new System.Collections.Generic.KeyValuePair<string, string>(safe, saved));
+                }
+                FileSafety.WriteViaTemp(destination, ".tmp", t => File.Copy(jar, t));
+            }
+            catch
+            {
+                foreach (var moved in migrated) if (!File.Exists(moved.Key)) File.Move(moved.Value, moved.Key);
+                throw;
+            }
             // Preserve an existing Fabric API installation instead of creating duplicate mod IDs.
             bool hasApi = Directory.EnumerateFiles(Path.GetDirectoryName(destination), "*.jar").Any(path => {
                 using (var zip = ZipFile.OpenRead(FileSafety.Under(root, "mods/" + Path.GetFileName(path))))

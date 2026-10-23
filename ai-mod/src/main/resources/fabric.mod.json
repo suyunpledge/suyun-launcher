@@ -1,0 +1,11 @@
+{
+  "schemaVersion": 1,
+  "id": "suyuncraft_ai",
+  "version": "0.3.0",
+  "name": "SuyunCraft AI",
+  "description": "On-demand AI plans with local bounded action execution",
+  "environment": "client",
+  "entrypoints": {"client": ["cn.suyuncraft.ai.AiClient"]},
+  "mixins": ["suyuncraft-ai.mixins.json"],
+  "depends": {"fabricloader": ">=0.16.10", "minecraft": "1.21.1", "java": ">=21", "fabric-api": "*"}
+}

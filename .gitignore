@@ -5,3 +5,11 @@ obj/
 .vs/
 tests/artifacts/
 verify-cache.json
+ai-mod/build/
+ai-mod/.gradle/
+ai-mod/dist/
+ai-mod/run/
+ai-mod/.tools/
+__pycache__/
+*.pyc
+*.log

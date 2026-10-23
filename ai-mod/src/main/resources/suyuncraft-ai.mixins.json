@@ -1,0 +1,1 @@
+{"required":true,"package":"cn.suyuncraft.ai.mixin","compatibilityLevel":"JAVA_21","client":["WorldUpdateMixin","WorkHudMixin"],"injectors":{"defaultRequire":1}}

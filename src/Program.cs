@@ -11,7 +11,7 @@ namespace SuyunCraft
     static class Program
     {
         public const string AppName = "SuyunCraft";
-        public const string AppVersion = "1.5";
+        public const string AppVersion = "1.7";
 
         [STAThread]
         static void Main(string[] args)
