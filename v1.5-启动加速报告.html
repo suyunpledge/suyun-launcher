@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<title>SuyunCraft v1.5 · 启动加速优化报告</title>
+<style>
+:root{--bg:#0f0f10;--ink:#e8e8ea;--mut:#9a9da3;--hair:rgba(255,255,255,.09);--acc:#3fb950}
+*{margin:0;padding:0;box-sizing:border-box}
+body{background:var(--bg);color:var(--ink);font-family:"Microsoft YaHei UI",sans-serif;font-size:15px;line-height:1.65}
+.mono{font-family:Consolas,monospace}
+.wrap{max-width:960px;margin:0 auto;padding:48px 32px 72px}
+.kicker{font-family:Consolas,monospace;font-size:12px;letter-spacing:.14em;color:var(--acc)}
+h1{font-size:36px;font-weight:600;margin:8px 0 4px}
+.sub{color:var(--mut)}
+.meta{display:flex;gap:22px;margin:18px 0;padding:10px 0;border-top:1px solid var(--hair);border-bottom:1px solid var(--hair);font-family:Consolas,monospace;font-size:12.5px;color:var(--mut);flex-wrap:wrap}
+.meta b{color:var(--ink)}
+section{margin-top:46px}
+h2{font-size:21px;font-weight:600;margin-bottom:12px}
+p{margin-bottom:12px;max-width:78ch}
+table{border-collapse:collapse;width:100%;margin:14px 0;font-size:14px}
+th{font-weight:600;text-align:left;color:var(--mut);font-size:12px;letter-spacing:.06em}
+th,td{padding:8px 13px;border-bottom:1px solid var(--hair);vertical-align:top}
+.big{font-size:26px;font-weight:600;color:var(--acc)}
+.note{border-left:2px solid var(--acc);padding:2px 0 2px 14px;margin:16px 0;max-width:80ch}
+.note .h{font-weight:600;margin-bottom:4px}
+.note p{color:var(--mut);margin:0}
+code{font-family:Consolas,monospace;font-size:.9em;background:#1b1b1e;border:1px solid var(--hair);border-radius:3px;padding:1px 6px}
+</style>
+</head>
+<body><div class="wrap">
+<header>
+<div class="kicker">Performance Report</div>
+<h1>启动加速：9.3 秒 → 0.88 秒</h1>
+<div class="sub">SuyunCraft v1.5 持久化校验缓存 · 实测数据来自本机 1.21.11（4,677 文件 / 528 MB）</div>
+<div class="meta"><span>日期 <b>2026-10-23</b></span><span>加速比 <b>10.6×</b></span><span>回归 <b>131 离线 + 5 UI 全过</b></span><span>兼容 <b>.NET 4.8 / C# 5</b></span></div>
+</header>
+
+<section>
+<h2>问题与方案</h2>
+<p>每次点「启动游戏」，旧逻辑对全部文件做完整 SHA-1 校验，本机实测 <b>9,338 ms</b>——这是点击到游戏拉起之间最大的等待块。v1.5 引入持久化校验缓存（VerifyStore）：完整校验通过的文件记录「长度 + 修改时间 + 头 4KB 哈希」三元组，下次启动三元组未变即跳过全量哈希，只做 stat 与抽样。</p>
+<table>
+<tr><th>场景</th><th>耗时</th><th>说明</th></tr>
+<tr><td>旧版每次启动</td><td class="big">9,338 ms</td><td>全量 SHA-1，4,600+ 文件</td></tr>
+<tr><td>v1.5 首次启动（建缓存）</td><td class="mono">836 ms</td><td>含全量校验 + 写缓存（缓存文件未变时部分命中）</td></tr>
+<tr><td>v1.5 日常启动</td><td class="big">881 ms</td><td>缓存命中 + 大文件头部抽样</td></tr>
+<tr><td>强制完整校验后</td><td class="mono">≈9 s</td><td>设置页一键触发，与旧版一致的安全强度</td></tr>
+</table>
+</section>
+
+<section>
+<h2>安全边界（分层防伪）</h2>
+<table>
+<tr><th>文件类别</th><th>校验策略</th><th>实测</th></tr>
+<tr><td>&gt;32 KB（客户端 jar、核心库、大资源，约 150 个）</td><td>length + mtime + <b>头 4KB SHA-1 抽样</b></td><td>等长篡改且伪造 mtime → <b>检出</b>（触发重下）</td></tr>
+<tr><td>≤32 KB（数千个小资源对象）</td><td>length + mtime</td><td>日常损坏（下载错误、磁盘坏块）必然改变二者之一</td></tr>
+<tr><td>任意文件</td><td>「强制完整校验」入口</td><td>清空缓存全量重扫，兜底一切</td></tr>
+</table>
+<div class="note"><div class="h">已知取舍（文档化）</div>
+<p>&gt;32KB 文件在 4KB 之后的尾部等长篡改、且 mtime 被精确伪造——这种针对性攻击不在日常抽样覆盖内，由强制完整校验兜底。这与业界启动器的缓存策略一致；缓存文件本身在 %APPDATA%\SuyunCraft\verify-cache.json，schema 版本变化自动作废。</p></div>
+</section>
+
+<section>
+<h2>失效规则</h2>
+<table>
+<tr><th>变化</th><th>结果</th></tr>
+<tr><td>期望 SHA-1 / size 变化（如版本清单更新）</td><td>键不同 → 自动完整校验</td></tr>
+<tr><td>文件内容/长度/mtime 任一变化</td><td>记录不匹配 → 完整校验 → 按结果重写记录</td></tr>
+<tr><td>校验失败或文件缺失</td><td>永不写入缓存</td></tr>
+<tr><td>手动「🔍 强制完整校验」（设置页新按钮）</td><td>缓存全清，下次启动全量</td></tr>
+</table>
+</section>
+
+<section>
+<h2>验证清单</h2>
+<table>
+<tr><th>项</th><th>结果</th></tr>
+<tr><td>131 项离线回归（新增 11 项 VerifyStore 专项：命中/未命中/契约变化/等长头部篡改/持久往返/全失效）</td><td>✅ 全过</td></tr>
+<tr><td>5 项 UI 冒烟</td><td>✅ 全过</td></tr>
+<tr><td>真实游戏目录性能实测（冷/热/防伪三轮）</td><td>✅ 9.3s → 0.88s，大文件篡改检出</td></tr>
+<tr><td>篡改后自动还原测试文件</td><td>✅ authlib 还原，游戏目录无残留</td></tr>
+</table>
+</section>
+</div></body></html>
