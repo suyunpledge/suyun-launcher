@@ -21,6 +21,17 @@ public final class DialogueTests {
         check(log.context().isEmpty(),"long execution log sends no chat history");
         log.add("user",""); log.add("assistant",null);
         check(log.lines().size()==60,"ignore empty events");
+        var lease=new InputLease<String>();
+        var events=new java.util.ArrayList<String>();
+        lease.release(k->events.add("release:"+k));
+        check(events.isEmpty(),"idle AI does not release player or other mod controls");
+        lease.hold("forward",k->events.add("press:"+k));
+        lease.hold("forward",k->events.add("press:"+k));
+        lease.hold("jump",k->events.add("press:"+k));
+        lease.release(k->events.add("release:"+k));
+        check(events.equals(java.util.List.of("press:forward","press:forward","press:jump","release:forward","release:jump")),"AI releases exactly the distinct controls it owned");
+        int size=events.size();lease.release(k->events.add("release:"+k));
+        check(events.size()==size,"repeated paused-screen ticks cannot reset input");
         System.out.println("Dialogue checks passed: "+checks);
     }
 }

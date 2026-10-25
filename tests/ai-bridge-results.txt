@@ -1,0 +1,32 @@
+test_blueprint_local_zero_api (test_bridge.BridgeTests.test_blueprint_local_zero_api) ... ok
+test_blueprint_rejects_coordinates_unsupported_material_and_mixed_actions (test_bridge.BridgeTests.test_blueprint_rejects_coordinates_unsupported_material_and_mixed_actions) ... ok
+test_chat_local_task_does_not_execute_or_spend (test_bridge.BridgeTests.test_chat_local_task_does_not_execute_or_spend) ... ok
+test_chat_remote_actions_are_rejected_without_retry (test_bridge.BridgeTests.test_chat_remote_actions_are_rejected_without_retry) ... ok
+test_combat_and_command_actions_accepted_and_bounded (test_bridge.BridgeTests.test_combat_and_command_actions_accepted_and_bounded) ... ok
+test_conversation_payload_preserves_bounded_history_and_progress (test_bridge.BridgeTests.test_conversation_payload_preserves_bounded_history_and_progress) ... ok
+test_cooldown_and_context_trim (test_bridge.BridgeTests.test_cooldown_and_context_trim) ... ok
+test_environment_context_is_allowlisted (test_bridge.BridgeTests.test_environment_context_is_allowlisted) ... ok
+test_failure_not_retried (test_bridge.BridgeTests.test_failure_not_retried) ... ok
+test_gate_flags_and_nearest_hostile_pass_through (test_bridge.BridgeTests.test_gate_flags_and_nearest_hostile_pass_through) ... ok
+test_http_auth_and_local_roundtrip (test_bridge.BridgeTests.test_http_auth_and_local_roundtrip) ... ok
+test_input_limits (test_bridge.BridgeTests.test_input_limits) ... ok
+test_invalid_history_does_not_spend (test_bridge.BridgeTests.test_invalid_history_does_not_spend) ... ok
+test_local_combat_and_command_zero_api (test_bridge.BridgeTests.test_local_combat_and_command_zero_api) ... ok
+test_local_smooth_commands_zero_api (test_bridge.BridgeTests.test_local_smooth_commands_zero_api) ... ok
+test_local_zero_calls (test_bridge.BridgeTests.test_local_zero_calls) ... ok
+test_malformed_environment_does_not_spend (test_bridge.BridgeTests.test_malformed_environment_does_not_spend) ... ok
+test_old_client_gets_upgrade_message (test_bridge.BridgeTests.test_old_client_gets_upgrade_message) ... ok
+test_persistent_quota (test_bridge.BridgeTests.test_persistent_quota) ... ok
+test_plaintext_remote_rejected (test_bridge.BridgeTests.test_plaintext_remote_rejected) ... ok
+test_public_plan_boundaries_and_private_fields (test_bridge.BridgeTests.test_public_plan_boundaries_and_private_fields) ... ok
+test_reject_untrusted_actions (test_bridge.BridgeTests.test_reject_untrusted_actions) ... ok
+test_remote_build_rejected_for_old_client (test_bridge.BridgeTests.test_remote_build_rejected_for_old_client) ... ok
+test_scan_is_local_with_exhausted_budget (test_bridge.BridgeTests.test_scan_is_local_with_exhausted_budget) ... ok
+test_single_flight (test_bridge.BridgeTests.test_single_flight) ... ok
+test_smooth_motion_actions_accepted_and_bounded (test_bridge.BridgeTests.test_smooth_motion_actions_accepted_and_bounded) ... ok
+test_wire_format_without_paid_request (test_bridge.BridgeTests.test_wire_format_without_paid_request) ... ok
+
+----------------------------------------------------------------------
+Ran 27 tests in 0.820s
+
+OK

@@ -87,6 +87,71 @@ class BridgeTests(unittest.TestCase):
                        {'type': 'use', 'command': '/kill'}]:
             with self.subTest(action=action), self.assertRaises(ValueError): validate({'message': 'x', 'actions': [action]})
         with self.assertRaises(ValueError): validate({'message': 'x', 'actions': [{'type': 'use'}] * 9})
+    def test_smooth_motion_actions_accepted_and_bounded(self):
+        ok = [{'type': 'move', 'direction': 'forward', 'ticks': 30, 'yaw': 90, 'sprint': True},
+              {'type': 'lookat', 'x': 100, 'y': 64, 'z': -200},
+              {'type': 'look', 'yaw': 10, 'pitch': 0, 'ticks': 6},
+              {'type': 'move', 'direction': 'back', 'ticks': 5}]
+        result = validate({'message': '平滑', 'plan': ['转向', '前进'], 'actions': ok})
+        self.assertEqual(len(result['actions']), 4)
+        for action in [{'type': 'move', 'direction': 'forward', 'yaw': 181},
+                       {'type': 'move', 'direction': 'forward', 'sprint': 'yes'},
+                       {'type': 'move', 'direction': 'jump', 'yaw': float('inf')},
+                       {'type': 'lookat', 'x': 40000000, 'y': 64, 'z': 0},
+                       {'type': 'lookat', 'x': 0, 'y': 9999, 'z': 0},
+                       {'type': 'lookat', 'x': float('nan'), 'y': 0, 'z': 0},
+                       {'type': 'lookat'},
+                       {'type': 'move', 'direction': 'forward', 'speed': 2},
+                       {'type': 'sprint'}]:
+            with self.subTest(action=action), self.assertRaises(ValueError): validate({'message': 'x', 'actions': [action]})
+    def test_local_smooth_commands_zero_api(self):
+        result = self.planner.plan({'task': '向前跑一段', 'state': {}})
+        self.assertTrue(result['actions'][0]['sprint'])
+        self.assertEqual(result['actions'][0]['ticks'], 60)
+        result = self.planner.plan({'task': '向前走十步', 'state': {}})
+        self.assertEqual(result['actions'][0]['ticks'], 50)
+        self.assertEqual(result['actions'][0]['direction'], 'forward')
+        self.assertFalse(self.calls)
+        self.assertFalse(self.path.exists())
+    def test_combat_and_command_actions_accepted_and_bounded(self):
+        ok = [{'type': 'attack', 'ticks': 80, 'target': 'nearest', 'approach': True},
+              {'type': 'command', 'command': 'time set day'}]
+        result = validate({'message': '战斗', 'actions': ok})
+        self.assertEqual(len(result['actions']), 2)
+        for action in [{'type': 'attack', 'ticks': 101},
+                       {'type': 'attack', 'ticks': 10, 'target': 'player'},
+                       {'type': 'attack', 'ticks': 10, 'approach': 'yes'},
+                       {'type': 'attack'},
+                       {'type': 'command', 'command': '/time set day'},
+                       {'type': 'command', 'command': 'stop'},
+                       {'type': 'command', 'command': 'tell @a hi'},
+                       {'type': 'command', 'command': 'time set day;kill'},
+                       {'type': 'command', 'command': 'time set ' + 'x' * 101},
+                       {'type': 'command', 'command': 'a ' * 9},
+                       {'type': 'command', 'command': 7},
+                       {'type': 'command'}]:
+            with self.subTest(action=action), self.assertRaises(ValueError): validate({'message': 'x', 'actions': [action]})
+    def test_local_combat_and_command_zero_api(self):
+        result = self.planner.plan({'task': '攻击附近的敌对生物', 'state': {}})
+        self.assertEqual(result['actions'][0]['type'], 'attack')
+        self.assertEqual(result['actions'][0]['target'], 'nearest')
+        result = self.planner.plan({'task': '调成白天', 'state': {}})
+        self.assertEqual(result['actions'], [{'type': 'command', 'command': 'time set day'}])
+        self.assertFalse(self.calls)
+    def test_gate_flags_and_nearest_hostile_pass_through(self):
+        self.request['state'].update(commandsAllowed=1, combatAllowed=0,
+                                     environment={'nearestHostileType': 'minecraft:zombie', 'nearestHostileDistance': 5, 'secret': 'x'})
+        self.planner.call = lambda payload: (self.calls.append(payload) or {'message': 'ok', 'actions': []})
+        self.planner.plan(self.request)
+        state = self.calls[0]['state']
+        self.assertEqual(state['commandsAllowed'], 1)
+        self.assertEqual(state['combatAllowed'], 0)
+        self.assertEqual(state['environment']['nearestHostileType'], 'minecraft:zombie')
+        self.assertEqual(state['environment']['nearestHostileDistance'], 5)
+        self.assertNotIn('secret', state['environment'])
+        for env in [{'nearestHostileType': 7}, {'nearestHostileDistance': 65}, {'nearestHostileDistance': '5'}]:
+            with self.subTest(env=env), self.assertRaises(ValueError):
+                self.planner.plan(dict(self.request, state=dict(self.request['state'], environment=env)))
     def test_input_limits(self):
         for task, state in [('x' * 301, {}), ('x', {'position': 'x' * 3000})]:
             with self.assertRaises(ValueError): self.planner.plan({'task': task, 'state': state})

@@ -1,0 +1,133 @@
+PASS: Cache accepts valid initial contract
+PASS: Cache cannot bypass a changed expected hash
+PASS: Cache cannot bypass a changed expected length
+PASS: Unresolved dependency is conservative and nonblocking
+PASS: Provided aliases satisfy ID lookup
+PASS: Wildcard dependency on provided alias resolves silently
+PASS: Duplicate top-level Fabric IDs reported
+PASS: Server-only mod dependencies skipped on client
+PASS: Forge marker detected without claiming TOML support
+PASS: Broken Fabric JSON blocks launch
+PASS: Vanilla warns without loading or inspecting mod contents
+PASS: Unsupported loaders report incomplete preflight
+PASS: Oversized compressed metadata rejected
+PASS: Truncated mod jar rejected
+PASS: External download cancellation prevents work
+PASS: Preflight honors cancellation
+PASS: Pipeline resolves metadata Java requirement
+PASS: In-flight launch uses a configuration snapshot
+PASS: Plan and mod preflight share the isolated game directory
+PASS: Launch phases run in defined order
+PASS: Preparation report records all stages
+PASS: Diagnostics exclude account and command data
+PASS: Cancelled preparation does not probe Java
+PASS: Cancellation during preflight prevents later phases
+PASS: Invalid mod stops preparation before Java and downloads
+PASS: Repair rechecks downloaded files before succeeding
+PASS: Incomplete repair stops at bounded retry count
+PASS: Loader detector recognizes NeoForge extension point
+PASS: AI install respects selected version isolation
+PASS: AI install generates token and disables world interaction by default
+PASS: AI install supplies Fabric API dependency
+PASS: AI reinstall preserves existing Fabric API without duplicates
+PASS: AI reinstall preserves local token and settings
+PASS: AI upgrade quarantines old version instead of duplicating mod IDs
+PASS: AI installer rejects a vanilla profile
+PASS: Version lower-bound unsatisfied detected
+PASS: In-range dependency passes silently
+PASS: AND range 1.16.x satisfied by 1.16.5
+PASS: Trailing wildcard matches same minor
+PASS: OR alternative satisfied by second branch
+PASS: All OR branches unsatisfied reported
+PASS: Build-metadata version reported unknown, never guessed
+PASS: Unknown never blocks launch
+PASS: minecraft/java builtin versions satisfy ranges
+PASS: Old minecraft/java detected via builtins
+PASS: breaks range violation reported
+PASS: Nested jar satisfies parent dependency
+PASS: Server-scoped dependency skipped on client
+PASS: Loader override relaxes range to any
+PASS: Override usage is surfaced to the user
+PASS: Duplicate IDs still reported
+PASS: Compare 1.16.5 > 1.16.4
+PASS: Prerelease sorts before release
+PASS: Missing segments pad to zero
+PASS: Nonstandard suffix stays comparable or invalid, never crashes
+PASS: Placeholder versions are invalid, not guessed
+PASS: Predicate AND evaluates range
+PASS: Caret upper bound enforced
+PASS: Caret allows minor bumps
+PASS: Tilde keeps patch range
+PASS: Unrecorded file never hits
+PASS: Recorded file with unchanged stat hits
+PASS: Changed expected hash misses
+PASS: Changed expected size misses
+PASS: Rewritten file (new mtime) misses
+PASS: Restored content re-evaluated safely
+PASS: Equal-length head tamper on large file detected
+PASS: Tail tamper behavior recorded (hit: documented trade-off)
+PASS: Small file trusts length+mtime
+PASS: Invalidate clears everything
+PASS: Persisted record survives reload
+PASS: Boolean settings survive save/load
+PASS: Numeric settings survive save/load
+PASS: Legacy string booleans accepted
+PASS: Invalid numeric settings clamped
+PASS: Reject unsafe path ../outside
+PASS: Reject unsafe path a/../../outside
+PASS: Reject unsafe path C:\outside
+PASS: Reject unsafe path \\server\share
+PASS: Reject unsafe path file:stream
+PASS: Reject unsafe path a/CON.txt
+PASS: Reject unsafe path a/b. 
+PASS: Reject unsafe version id
+PASS: Normal library path accepted
+PASS: Reject plaintext downloads
+PASS: Reject file URLs
+PASS: Detect equal-size file corruption using SHA1
+PASS: Detect incorrect file length
+PASS: Atomic replacement of existing files
+PASS: Paths longer than 260 characters work
+PASS: ZIP traversal rejected
+PASS: ZIP cannot overwrite outside its destination
+PASS: Windows process argument roundtrip 0
+PASS: Windows process argument roundtrip 1
+PASS: Windows process argument roundtrip 2
+PASS: Windows process argument roundtrip 3
+PASS: Windows process argument roundtrip 4
+PASS: Windows process argument roundtrip 5
+PASS: Windows process argument roundtrip 6
+PASS: Windows process argument roundtrip 7
+PASS: Windows process argument roundtrip 8
+PASS: Windows process argument roundtrip 9
+PASS: Parse quoted JVM values and empty arguments
+PASS: Reject unclosed JVM quote
+PASS: Absent rules allow library
+PASS: macOS-only library excluded on Windows
+PASS: Empty explicit rules disallow
+PASS: Last matching rule wins
+PASS: OS version expression evaluated
+PASS: False feature requirements match default state
+PASS: Maven classifier and extension
+PASS: Maven traversal rejected
+PASS: Fabric uses parent client jar
+PASS: Child overrides parent library version
+PASS: Parent arguments precede child arguments
+PASS: Inherited jar on classpath
+PASS: Custom resolution feature expanded once
+PASS: Invalid offline player name rejected
+PASS: Cyclic version inheritance rejected
+PASS: Legacy game directory remains one argument
+PASS: Collect both Java artifact and native
+PASS: Native architecture placeholder resolved
+PASS: Native ZIP traversal fails launch plan
+PASS: First asset phase discovers index
+PASS: Second asset phase discovers hashed objects
+PASS: All assets complete after object download
+PASS: Legacy virtual and resource maps materialized
+PASS: Failed worker reports completion and error
+PASS: Failed download preserves destination and progress
+PASS: Failed download leaves no partial files
+PASS: Pre-cancelled manager completes
+PASS: Concurrent JSON parsing
+RESULT: 132 checks passed. Fixtures: C:\Users\匡溯昀\Desktop\本地工作流\SuyunCraft\tests\artifacts\20261023-175005-ff2a10ebb18f4f0ab5c0bdc6669d3bcb

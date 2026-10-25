@@ -125,10 +125,22 @@ namespace SuyunCraft
             Jar(ovr, "user", ModJson("user", "1", "{\"lib\":\">=2.0\"}"));
             Directory.CreateDirectory(Path.Combine(ovr, "config"));
             File.WriteAllText(Path.Combine(ovr, "config", "fabric_loader_dependencies.json"),
-                "{\"version\":\"1\",\"overrides\":{\"lib\":\"*\"}}");
+                "{\"version\":1,\"overrides\":{\"user\":{\"depends\":{\"lib\":\"*\"}}}}");
             issues = Scan(ovr);
             check(!issues.Any(i => i.Code == "MOD_DEPENDENCY_VERSION_UNSATISFIED"), "Loader override relaxes range to any");
             check(issues.Any(i => i.Code == "MOD_OVERRIDE_APPLIED"), "Override usage is surfaced to the user");
+            Jar(ovr, "other", ModJson("other", "1", "{\"lib\":\">=3.0\"}"));
+            issues = Scan(ovr);
+            check(issues.Count(i => i.Code == "MOD_DEPENDENCY_VERSION_UNSATISFIED") == 1 && issues.Any(i => i.Message.Contains("other.jar")), "Official overrides affect only the named mod");
+            string overridePath = Path.Combine(ovr, "config", "fabric_loader_dependencies.json");
+            File.WriteAllText(overridePath, "{\"version\":1,\"overrides\":{\"user\":{\"-depends\":{\"lib\":\"ignored\"},\"+depends\":{\"lib\":\"*\"}}}}");
+            check(Scan(ovr).Count(i => i.Code == "MOD_DEPENDENCY_VERSION_UNSATISFIED") == 1, "Official remove then add dependency override works");
+            File.WriteAllText(overridePath, "{\"version\":1,\"overrides\":{\"user\":{\"depends\":{},\"+depends\":{\"not_installed\":\"*\"}}}}");
+            check(!Scan(ovr).Any(i => i.Message.Contains("not_installed")), "Replacement override suppresses add/remove as Fabric Loader does");
+            File.WriteAllText(overridePath, "{\"version\":1,\"overrides\":{\"user\":{\"+depends\":{\"lib\":\"*\"}}}}");
+            check(Scan(ovr).Count(i => i.Code == "MOD_DEPENDENCY_VERSION_UNSATISFIED") == 2, "Add-only override does not erase original dependency constraints");
+            File.WriteAllText(overridePath, "{");
+            check(Scan(ovr).Any(i => i.Code == "MOD_OVERRIDE_INVALID"), "Malformed loader override reports a diagnostic instead of crashing preflight");
 
             // ---- 重复 ID 仍按原样报告（Fabric ID 最短 2 位，用合法的 xx） ----
             string dup = Dir("dup");

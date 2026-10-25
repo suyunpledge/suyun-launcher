@@ -31,19 +31,22 @@ namespace SuyunCraft
         }
 
         // ---------------- 设置页 ----------------
+        UiCard cardGameDir, cardJava, cardMirror, cardLaunchOpt, cardTools;
+        UiButton btnGameBrowse, btnGameOpen, btnJavaBrowse, btnJavaDetect;
+
         void BuildSettings()
         {
-            setPage = new Panel();
-            setPage.Dock = DockStyle.Fill;
+            setPage = new UiPage();
             setPage.AutoScroll = true;
-            setPage.BackColor = System.Drawing.Color.Transparent;
+            setPage.HeaderTitle = "设置";
+            setPage.HeaderSubtitle = "目录、运行时、下载源与启动参数";
 
-            int y = 10;
-            Label l1 = MkLabel("游戏目录", 0, y, 200); setPage.Controls.Add(l1); y += 26;
-            txtGameDir = new TextBox(); txtGameDir.SetBounds(0, y, 600, 30);
-            Theme.StyleInput(txtGameDir); setPage.Controls.Add(txtGameDir);
-            Button b1 = new Button(); b1.Text = "浏览"; b1.SetBounds(610, y - 2, 70, 32);
-            Theme.StyleButton(b1, null);
+            // ---------- 游戏目录 ----------
+            cardGameDir = NewCard(setPage, "游戏目录", 60, 80);
+            txtGameDir = new UiTextField(); txtGameDir.SetBounds(20, 36, 600, 34);
+            cardGameDir.Controls.Add(txtGameDir);
+            UiButton b1 = new UiButton(); b1.Text = "浏览"; b1.Icon = UiIcon.Folder; b1.SetBounds(630, 35, 96, 36);
+            btnGameBrowse = b1;
             b1.Click += delegate
             {
                 var d = new FolderBrowserDialog();
@@ -51,9 +54,9 @@ namespace SuyunCraft
                 try { d.SelectedPath = cfg.GameDir; } catch { }
                 if (d.ShowDialog(this) == DialogResult.OK) { txtGameDir.Text = d.SelectedPath; }
             };
-            setPage.Controls.Add(b1);
-            Button b1b = new Button(); b1b.Text = "打开目录"; b1b.SetBounds(690, y - 2, 90, 32);
-            Theme.StyleButton(b1b, null);
+            cardGameDir.Controls.Add(b1);
+            UiButton b1b = new UiButton(); b1b.Text = "打开目录"; b1b.SetBounds(736, 35, 110, 36);
+            btnGameOpen = b1b;
             b1b.Click += delegate
             {
                 try
@@ -63,23 +66,23 @@ namespace SuyunCraft
                 }
                 catch (Exception ex) { MessageBox.Show(ex.Message); }
             };
-            setPage.Controls.Add(b1b);
-            y += 44;
+            cardGameDir.Controls.Add(b1b);
 
-            Label l2 = MkLabel("Java（javaw.exe 路径）", 0, y, 300); setPage.Controls.Add(l2); y += 26;
-            txtJava = new TextBox(); txtJava.SetBounds(0, y, 600, 30);
-            Theme.StyleInput(txtJava); setPage.Controls.Add(txtJava);
-            Button b2 = new Button(); b2.Text = "浏览"; b2.SetBounds(610, y - 2, 70, 32);
-            Theme.StyleButton(b2, null);
+            // ---------- Java 运行时 ----------
+            cardJava = NewCard(setPage, "Java 运行时（javaw.exe 路径）", 152, 160);
+            txtJava = new UiTextField(); txtJava.SetBounds(20, 36, 600, 34);
+            cardJava.Controls.Add(txtJava);
+            UiButton b2 = new UiButton(); b2.Text = "浏览"; b2.SetBounds(630, 35, 96, 36);
+            btnJavaBrowse = b2;
             b2.Click += delegate
             {
                 var d = new OpenFileDialog(); d.Filter = "javaw.exe|javaw.exe|java.exe|java.exe";
                 try { d.InitialDirectory = Path.GetDirectoryName(cfg.JavaPath); } catch { }
                 if (d.ShowDialog(this) == DialogResult.OK) txtJava.Text = d.FileName;
             };
-            setPage.Controls.Add(b2);
-            Button b2b = new Button(); b2b.Text = "自动检测"; b2b.SetBounds(690, y - 2, 90, 32);
-            Theme.StyleButton(b2b, null);
+            cardJava.Controls.Add(b2);
+            UiButton b2b = new UiButton(); b2b.Text = "自动检测"; b2b.Icon = UiIcon.Search; b2b.SetBounds(736, 35, 110, 36);
+            btnJavaDetect = b2b;
             ToolTip ttDetect = new ToolTip();
             ttDetect.SetToolTip(b2b, "扫描 PATH、官方 runtime 与已下载 JRE，逐一探测版本后选用第一个");
             b2b.Click += async delegate
@@ -104,23 +107,24 @@ namespace SuyunCraft
                 }
                 finally { b2b.Enabled = true; }
             };
-            setPage.Controls.Add(b2b);
-            y += 44;
+            cardJava.Controls.Add(b2b);
 
-            Label l2c = MkLabel("没有 Java 或版本不匹配？下载 Temurin JRE：", 0, y, 320); setPage.Controls.Add(l2c);
-            Button bj8 = new Button(); bj8.Text = "Java 8"; bj8.SetBounds(330, y - 4, 80, 30); Theme.StyleButton(bj8, null);
-            Button bj17 = new Button(); bj17.Text = "Java 17"; bj17.SetBounds(418, y - 4, 80, 30); Theme.StyleButton(bj17, null);
-            Button bj21 = new Button(); bj21.Text = "Java 21"; bj21.SetBounds(506, y - 4, 80, 30); Theme.StyleButton(bj21, null);
+            Label l2c = MkLabel("没有 Java 或版本不匹配？下载 Temurin JRE：", 20, 88, 360);
+            l2c.ForeColor = Theme.Muted;
+            l2c.Font = Theme.Caption;
+            cardJava.Controls.Add(l2c);
+            UiButton bj8 = new UiButton(); bj8.Text = "Java 8"; bj8.SetBounds(20, 112, 90, 32);
+            UiButton bj17 = new UiButton(); bj17.Text = "Java 17"; bj17.SetBounds(118, 112, 90, 32);
+            UiButton bj21 = new UiButton(); bj21.Text = "Java 21"; bj21.SetBounds(216, 112, 90, 32);
+            UiButton bjSelected = new UiButton(); bjSelected.Text = "按版本下载"; bjSelected.SetBounds(314, 112, 120, 32);
             bj8.Click += delegate { DownloadJava(8); };
             bj17.Click += delegate { DownloadJava(17); };
             bj21.Click += delegate { DownloadJava(21); };
-            setPage.Controls.Add(bj8); setPage.Controls.Add(bj17); setPage.Controls.Add(bj21);
+            cardJava.Controls.Add(bj8); cardJava.Controls.Add(bj17); cardJava.Controls.Add(bj21);
             ToolTip ttJre = new ToolTip();
             ttJre.SetToolTip(bj8, "下载 Temurin JRE 8（1.16 及更早版本）");
             ttJre.SetToolTip(bj17, "下载 Temurin JRE 17（1.17 – 1.20.4）");
             ttJre.SetToolTip(bj21, "下载 Temurin JRE 21（1.20.5 及更新版本）");
-            var bjSelected = new Button { Text = "按版本下载" };
-            bjSelected.SetBounds(590, y - 4, 106, 30); Theme.StyleButton(bjSelected, null);
             ttJre.SetToolTip(bjSelected, "读取主页所选版本的 Java 要求，下载匹配的 Temurin JRE");
             bjSelected.Click += delegate {
                 string selected = SelectedVersion();
@@ -128,48 +132,98 @@ namespace SuyunCraft
                 try { DownloadJava((int)Json.L(Json.O(LaunchPlanner.LoadMerged(cfg.GameDir, selected), "javaVersion"), "majorVersion", 8)); }
                 catch (Exception ex) { MessageBox.Show(ex.Message); }
             };
-            setPage.Controls.Add(bjSelected);
-            y += 38;
+            cardJava.Controls.Add(bjSelected);
 
-            Label l3 = MkLabel("下载源（国内网络建议 BMCLAPI）", 0, y, 300); setPage.Controls.Add(l3); y += 26;
-            rbOfficial = new RadioButton(); rbOfficial.Text = "官方源"; rbOfficial.SetBounds(0, y, 90, 24); rbOfficial.ForeColor = Theme.Text;
-            rbBmcl = new RadioButton(); rbBmcl.Text = "BMCLAPI（国内加速）"; rbBmcl.SetBounds(100, y, 200, 24); rbBmcl.ForeColor = Theme.Text;
+            // ---------- 下载源 ----------
+            cardMirror = NewCard(setPage, "下载源（国内网络建议 BMCLAPI）", 324, 82);
+            rbOfficial = new UiRadioButton(); rbOfficial.Text = "官方源"; rbOfficial.SetBounds(20, 36, 110, 26);
+            rbBmcl = new UiRadioButton(); rbBmcl.Text = "BMCLAPI（国内加速）"; rbBmcl.SetBounds(140, 36, 220, 26);
             ToolTip ttMirror = new ToolTip();
             ttMirror.SetToolTip(rbOfficial, "Mojang 官方服务器，海外网络适用");
             ttMirror.SetToolTip(rbBmcl, "国内镜像，下载速度与稳定性通常更好");
-            setPage.Controls.Add(rbOfficial); setPage.Controls.Add(rbBmcl); y += 36;
+            cardMirror.Controls.Add(rbOfficial); cardMirror.Controls.Add(rbBmcl);
 
-            Label l4 = MkLabel("额外 JVM 参数（可选，如 -Dfile.encoding=UTF-8）", 0, y, 520); setPage.Controls.Add(l4); y += 26;
-            txtJvm = new TextBox(); txtJvm.SetBounds(0, y, 600, 30);
-            Theme.StyleInput(txtJvm); setPage.Controls.Add(txtJvm);
+            // ---------- 启动参数与窗口 ----------
+            cardLaunchOpt = NewCard(setPage, "额外 JVM 参数（可选，如 -Dfile.encoding=UTF-8）", 418, 190);
+            txtJvm = new UiTextField(); txtJvm.SetBounds(20, 36, 600, 34);
+            cardLaunchOpt.Controls.Add(txtJvm);
             ToolTip ttJvm = new ToolTip();
             ttJvm.SetToolTip(txtJvm, "追加到游戏 JVM 命令行，留空使用默认；内存由主页滑块控制，不要在这里写 -Xmx");
-            y += 44;
 
-            Label l5 = MkLabel("游戏窗口大小", 0, y, 150); setPage.Controls.Add(l5);
-            numW = new NumericUpDown(); numW.SetBounds(160, y - 3, 80, 28); numW.Minimum = 0; numW.Maximum = 7680;
-            Label l5b = MkLabel("×", 250, y, 16); setPage.Controls.Add(l5b);
-            numH = new NumericUpDown(); numH.SetBounds(272, y - 3, 80, 28); numH.Minimum = 0; numH.Maximum = 4320;
-            setPage.Controls.Add(numW); setPage.Controls.Add(numH);
-            Label l5c = MkLabel("(0 = 跟随游戏默认)", 360, y, 200); l5c.ForeColor = Theme.Muted; setPage.Controls.Add(l5c);
-            y += 40;
+            Label l5 = MkLabel("游戏窗口大小", 20, 84, 140);
+            l5.ForeColor = Theme.Muted;
+            l5.Font = Theme.Caption;
+            cardLaunchOpt.Controls.Add(l5);
+            numW = new UiNumeric(); numW.SetBounds(20, 106, 92, 32); numW.Minimum = 0; numW.Maximum = 7680;
+            Label l5b = MkLabel("×", 120, 110, 16); cardLaunchOpt.Controls.Add(l5b);
+            numH = new UiNumeric(); numH.SetBounds(142, 106, 92, 32); numH.Minimum = 0; numH.Maximum = 4320;
+            Label l5c = MkLabel("(0 = 跟随游戏默认)", 244, 110, 220); l5c.ForeColor = Theme.Muted; l5c.Font = Theme.Caption;
+            cardLaunchOpt.Controls.Add(l5c);
+            cardLaunchOpt.Controls.Add(numW); cardLaunchOpt.Controls.Add(numH);
 
-            chkCapture = new CheckBox(); chkCapture.Text = "捕获游戏输出日志（排错用，关闭可略微提速）";
-            chkCapture.SetBounds(0, y, 420, 24); chkCapture.ForeColor = Theme.Text;
-            setPage.Controls.Add(chkCapture); y += 40;
+            chkCapture = new UiCheckBox();
+            chkCapture.Text = "捕获游戏输出日志（排错用，关闭可略微提速）";
+            chkCapture.SetBounds(20, 148, 420, 24);
+            cardLaunchOpt.Controls.Add(chkCapture);
 
-            Button bVerify = new Button(); bVerify.Text = "🔍 强制完整校验";
-            bVerify.SetBounds(170, y, 150, 40);
-            Theme.StyleButton(bVerify, null);
+            // ---------- 维护与扩展 ----------
+            cardTools = NewCard(setPage, "校验、模组与 AI 集成", 620, 132);
+            UiButton bVerify = new UiButton(); bVerify.Text = "强制完整校验"; bVerify.Icon = UiIcon.Shield;
+            bVerify.SetBounds(20, 36, 160, 36);
             ToolTip ttVerify = new ToolTip();
             ttVerify.SetToolTip(bVerify, "清空持久校验缓存，下次启动对全部文件重新做完整哈希校验");
             bVerify.Click += delegate {
                 try { VerifyStore.InvalidateAll(); MessageBox.Show("已清空校验缓存，下次启动将全量校验。", "提示"); }
                 catch (Exception ex) { MessageBox.Show(ex.Message, "失败"); }
             };
-            setPage.Controls.Add(bVerify);
-            Button bSave = new Button(); bSave.Text = "保存设置"; bSave.SetBounds(0, y, 150, 40);
-            Theme.StyleButton(bSave, Theme.Accent); bSave.ForeColor = System.Drawing.Color.White;
+            cardTools.Controls.Add(bVerify);
+
+            var modManager = new UiButton { Name = "modManagerButton", Text = "第三方模组管理", Icon = UiIcon.Package };
+            modManager.SetBounds(190, 36, 170, 36);
+            modManager.Click += delegate {
+                try {
+                    string version = SelectedVersion();
+                    if (version == null) throw new InvalidOperationException("请先在主页选择已安装版本。");
+                    var snapshot = cfg.Snapshot(); snapshot.VersionIsolation = chkIsolation.Checked;
+                    using (var dialog = new ModManagerForm(new ModManagement(snapshot, version), () => gameProc != null && !gameProc.HasExited))
+                        dialog.ShowDialog(this);
+                } catch (Exception ex) { MessageBox.Show(ex.Message, "模组管理"); }
+            };
+            cardTools.Controls.Add(modManager);
+
+            UiButton aiInstall = new UiButton { Name = "aiInstallButton", Text = "安装 AI 模组", Icon = UiIcon.Spark };
+            aiInstall.SetBounds(370, 36, 150, 36);
+            aiInstall.Click += async delegate {
+                if (gameProc != null && !gameProc.HasExited) { MessageBox.Show("请先退出游戏，再更新模组。"); return; }
+                string version = SelectedVersion();
+                if (version == null) { MessageBox.Show("请先选择 Minecraft 1.21.1 Fabric 版本。"); return; }
+                var snapshot = cfg.Snapshot(); snapshot.VersionIsolation = chkIsolation.Checked;
+                try {
+                    SetBusy(true);
+                    string path = await Task.Run(() => AiIntegration.Install(snapshot, version));
+                    if (!IsDisposed) MessageBox.Show("AI 模组已安装。\n点击「启动 AI 桥接」后，进游戏输入 /scai ask 任务。\n配置：" + path);
+                } catch (Exception ex) { if (!IsDisposed) MessageBox.Show(ex.Message, "AI 模组安装失败"); }
+                finally { SetBusy(false); }
+            };
+            cardTools.Controls.Add(aiInstall);
+
+            UiButton aiBridge = new UiButton { Name = "aiBridgeButton", Text = "启动 AI 桥接", Icon = UiIcon.Link };
+            aiBridge.SetBounds(530, 36, 150, 36);
+            aiBridge.Click += delegate {
+                try {
+                    string version = SelectedVersion();
+                    if (version == null) throw new InvalidOperationException("请先选择版本。");
+                    var snapshot = cfg.Snapshot(); snapshot.VersionIsolation = chkIsolation.Checked;
+                    string path = FileSafety.Under(AiIntegration.GameDirectory(snapshot, version), "config/suyuncraft-ai.json");
+                    if (!File.Exists(path)) throw new FileNotFoundException("请先安装 AI 模组。");
+                    string script = Path.Combine(AiIntegration.BundleDirectory(), "start-bridge.ps1");
+                    Process.Start(new ProcessStartInfo("powershell.exe", CommandLine.Join(new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-ConfigPath", path })) { UseShellExecute = true });
+                } catch (Exception ex) { MessageBox.Show(ex.Message, "AI 桥接"); }
+            };
+            cardTools.Controls.Add(aiBridge);
+
+            UiButton bSave = new UiButton(); bSave.Text = "保存设置"; bSave.Kind = UiButtonKind.Primary;
+            bSave.SetBounds(20, 84, 160, 38);
             bSave.Click += delegate
             {
                 cfg.GameDir = txtGameDir.Text.Trim().Length > 0 ? txtGameDir.Text.Trim() : cfg.GameDir;
@@ -184,49 +238,15 @@ namespace SuyunCraft
                 lblJava.Text = string.IsNullOrEmpty(cfg.JavaPath) ? "Java：未设置" : "Java：" + cfg.JavaPath;
                 MessageBox.Show("已保存。", "提示", MessageBoxButtons.OK, MessageBoxIcon.Information);
             };
-            setPage.Controls.Add(bSave);
+            cardTools.Controls.Add(bSave);
 
-            lblSetInfo = MkLabel("提示：配置文件在 %APPDATA%\\SuyunCraft\\launcher_config.json", 170, y + 10, 600);
-            lblSetInfo.ForeColor = Theme.Muted;
+            lblSetInfo = MkLabel("提示：配置文件在 %APPDATA%\\SuyunCraft\\launcher_config.json", 0, 762, 760);
+            lblSetInfo.ForeColor = Theme.TextDisabled;
+            lblSetInfo.Font = Theme.Caption;
             setPage.Controls.Add(lblSetInfo);
 
-            Button aiInstall = new Button(); aiInstall.Name = "aiInstallButton"; aiInstall.Text = "安装 AI 模组";
-            aiInstall.SetBounds(0, y + 58, 150, 36); Theme.StyleButton(aiInstall, Theme.Card);
-            aiInstall.Click += async delegate {
-                string version = SelectedVersion();
-                if (version == null) { MessageBox.Show("请先选择 Minecraft 1.21.1 Fabric 版本。"); return; }
-                var snapshot = cfg.Snapshot(); snapshot.VersionIsolation = chkIsolation.Checked;
-                try {
-                    SetBusy(true);
-                    string path = await Task.Run(() => AiIntegration.Install(snapshot, version));
-                    if (!IsDisposed) MessageBox.Show("AI 模组已安装。\n点击「启动 AI 桥接」后，进游戏输入 /scai ask 任务。\n配置：" + path);
-                } catch (Exception ex) { if (!IsDisposed) MessageBox.Show(ex.Message, "AI 模组安装失败"); }
-                finally { SetBusy(false); }
-            };
-            setPage.Controls.Add(aiInstall);
-            Button aiBridge = new Button(); aiBridge.Name = "aiBridgeButton"; aiBridge.Text = "启动 AI 桥接";
-            aiBridge.SetBounds(165, y + 58, 150, 36); Theme.StyleButton(aiBridge, Theme.Card);
-            aiBridge.Click += delegate {
-                try {
-                    string version = SelectedVersion();
-                    if (version == null) throw new InvalidOperationException("请先选择版本。");
-                    var snapshot = cfg.Snapshot(); snapshot.VersionIsolation = chkIsolation.Checked;
-                    string path = FileSafety.Under(AiIntegration.GameDirectory(snapshot, version), "config/suyuncraft-ai.json");
-                    if (!File.Exists(path)) throw new FileNotFoundException("请先安装 AI 模组。");
-                    string script = Path.Combine(AiIntegration.BundleDirectory(), "start-bridge.ps1");
-                    Process.Start(new ProcessStartInfo("powershell.exe", CommandLine.Join(new[] { "-NoProfile", "-ExecutionPolicy", "Bypass", "-File", script, "-ConfigPath", path })) { UseShellExecute = true });
-                } catch (Exception ex) { MessageBox.Show(ex.Message, "AI 桥接"); }
-            };
-            setPage.Controls.Add(aiBridge);
-
-            setPage.Resize += delegate {
-                int width = Math.Max(360, setPage.ClientSize.Width - 180);
-                txtGameDir.Width = width; b1.Left = width + 10; b1b.Left = width + 90;
-                txtJava.Width = width; b2.Left = width + 10; b2b.Left = width + 90;
-                txtJvm.Width = Math.Min(600, setPage.ClientSize.Width);
-                lblSetInfo.Width = Math.Max(200, setPage.ClientSize.Width - 180);
-                lblSetInfo.AutoEllipsis = true;
-            };
+            setPage.Resize += delegate { LayoutSettings(); };
+            LayoutSettings();
 
             // 载入当前值
             txtGameDir.Text = cfg.GameDir;
@@ -236,6 +256,43 @@ namespace SuyunCraft
             numW.Value = Math.Min(7680, Math.Max(0, cfg.WindowWidth));
             numH.Value = Math.Min(4320, Math.Max(0, cfg.WindowHeight));
             chkCapture.Checked = cfg.CaptureGameLog;
+        }
+
+        UiCard NewCard(Panel host, string caption, int top, int height)
+        {
+            UiCard card = new UiCard();
+            card.SetBounds(0, top, 600, height);
+            Label l = MkLabel(caption, 20, 12, 460);
+            l.ForeColor = Theme.Muted;
+            l.Font = Theme.Caption;
+            card.Controls.Add(l);
+            host.Controls.Add(card);
+            return card;
+        }
+
+        void LayoutSettings()
+        {
+            if (suppressLayout) return;
+            // 页面内容总是需要纵向滚动，先给滚动条预留宽度，避免再冒出横向滚动条。
+            int w = setPage.ClientSize.Width - Ui.Px(SystemInformation.VerticalScrollBarWidth) - Ui.Px(2);
+            if (w <= 0) return;
+            int[] tops = { Ui.Px(60), Ui.Px(152), Ui.Px(324), Ui.Px(418), Ui.Px(620) };
+            UiCard[] cards = { cardGameDir, cardJava, cardMirror, cardLaunchOpt, cardTools };
+            for (int i = 0; i < cards.Length; i++)
+            {
+                cards[i].SetBounds(0, tops[i], w, cards[i].Height);
+            }
+            int right = w - Ui.Px(20);
+            int fieldW = Math.Max(Ui.Px(240), right - Ui.Px(240));
+            txtGameDir.Width = fieldW;
+            txtJava.Width = fieldW;
+            txtJvm.Width = Math.Max(Ui.Px(240), w - Ui.Px(40));
+            lblSetInfo.Width = Math.Max(Ui.Px(200), w - Ui.Px(20));
+
+            btnJavaDetect.Left = right - btnJavaDetect.Width;
+            btnJavaBrowse.Left = btnJavaDetect.Left - Ui.Px(10) - btnJavaBrowse.Width;
+            btnGameOpen.Left = right - btnGameOpen.Width;
+            btnGameBrowse.Left = btnGameOpen.Left - Ui.Px(10) - btnGameBrowse.Width;
         }
 
         async void DownloadJava(int major)

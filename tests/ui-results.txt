@@ -1,0 +1,4 @@
+PASS: Fabric UI selection strips full emoji prefix
+PASS: Window size input visible in control tree numW
+PASS: Window size input visible in control tree numH
+UI RESULT: 3 checks passed

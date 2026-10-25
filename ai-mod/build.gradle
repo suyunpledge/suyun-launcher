@@ -1,5 +1,5 @@
 plugins { id 'fabric-loom' version '1.8.13' }
-version = '0.3.0'
+version = '0.5.0'
 group = 'cn.suyuncraft'
 base { archivesName = 'suyuncraft-ai' }
 repositories { mavenCentral() }
@@ -42,6 +42,18 @@ tasks.register('dialogueTest', JavaExec) {
     mainClass = 'cn.suyuncraft.ai.DialogueTests'
 }
 tasks.named('check') { dependsOn dialogueTest }
+tasks.register('motionTest', JavaExec) {
+    dependsOn compileBlueprintChecks
+    classpath = files(layout.buildDirectory.dir('verification'), sourceSets.main.output)
+    mainClass = 'cn.suyuncraft.ai.MotionTests'
+}
+tasks.named('check') { dependsOn motionTest }
+tasks.register('commandTest', JavaExec) {
+    dependsOn compileBlueprintChecks
+    classpath = files(layout.buildDirectory.dir('verification'), sourceSets.main.output)
+    mainClass = 'cn.suyuncraft.ai.CommandTests'
+}
+tasks.named('check') { dependsOn commandTest }
 // Remapping needs Java class hierarchies, not platform-native runtime jars for every Windows architecture.
 tasks.named('remapJar') { classpath.setFrom(configurations.compileClasspath) }
 if (!gradle.startParameter.taskNames.any { it.toLowerCase().contains('run') }) {

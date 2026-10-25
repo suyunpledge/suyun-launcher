@@ -1,0 +1,38 @@
+To honour the JVM settings for this build a single-use Daemon process will be forked. For more on this, please refer to https://docs.gradle.org/8.10.2/userguide/gradle_daemon.html#sec:disabling_the_daemon in the Gradle documentation.
+Daemon will be stopped at the end of the build 
+
+> Configure project :
+Fabric Loom: 1.8.13
+
+> Task :compileJava UP-TO-DATE
+> Task :processResources UP-TO-DATE
+> Task :classes UP-TO-DATE
+> Task :jar UP-TO-DATE
+> Task :compileTestJava NO-SOURCE
+> Task :processIncludeJars UP-TO-DATE
+> Task :compileBlueprintChecks UP-TO-DATE
+
+> Task :blueprintTest
+Blueprint/receipt checks passed: 116
+
+> Task :commandTest
+Command checks passed: 19
+
+> Task :dialogueTest
+Dialogue checks passed: 14
+
+> Task :motionTest
+Motion checks passed: 19
+
+> Task :processTestResources NO-SOURCE
+> Task :testClasses UP-TO-DATE
+> Task :test NO-SOURCE
+> Task :validateAccessWidener NO-SOURCE
+> Task :check
+> Task :remapJar
+> Task :remapSourcesJar SKIPPED
+> Task :assemble
+> Task :build
+
+BUILD SUCCESSFUL in 20s
+10 actionable tasks: 5 executed, 5 up-to-date

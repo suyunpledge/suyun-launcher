@@ -1,5 +1,21 @@
 # GLM‑5.3 后端续开发交接
 
+2026-10-24 指令与战斗专项：AI 模组升级 0.5.0（C# JAR 引用已同步）。新增 `Commands.java` 白名单纯逻辑类（根 time/weather/gamemode/difficulty/tp/effect，字符集 `[A-Za-z0-9_-.:@ ]`、≤100 字符、≤8 参数、禁前导斜杠，配 `CommandTests` 19 项）；`command` 动作经 `allowCommands` 门后 `networkHandler.sendCommand` 发送，执行前二次校验。新增 `attack` 动作（`allowCombat` 门）：`target:nearest` 锁定 8 格内最近 `HostileEntity`（`EnvironmentProbe.nearestHostile`），每 tick `setAim` 平滑追踪、`getAttackCooldownProgress>=1` 才 `attackEntity`+挥手，`approach` 追击复用 safeStep/canStepUp；仅攻击敌对生物，生命<10 或目标>12 格或界面打开即停；击败后自动转向下一目标。`/scai fight [1-200]` 本地零 API 战斗。环境摘要新增 `nearestHostileType/nearestHostileDistance`（桥接快照严格校验），状态门 `commandsAllowed/combatAllowed` 入桥接白名单。验证：19 命令、27 桥接、116 蓝图、14 对话、19 运动、202 回归、16 UI 通过；未进真实 MC 验证权限路径与战斗手感。备份 `backup/before-combat-commands-20261024`。
+
+2026-10-24 动作流畅度专项：AI 模组升级 0.4.0（启动器 JAR 引用 `src/AiIntegration.cs` 已同步）。新增 `Motion.java`（纯运动学：限速转向、±180° 最短路径、yaw/pitch 求解，配 `MotionTests` 19 项）；`AiClient` 的 `look` 改为持续限速插值并跨动作延续，`move` 支持可选 `yaw`/`sprint`、1 格台阶自动跳（`canStepUp`）、跳跃后 `airGrace` 与 `EnvironmentProbe.descentSafe` 下坡宽限、连续受阻 8 tick 才停；新增 `lookat` 动作与 `/scai goto <x> <z> [1-400]` 本地行走（卡住检测、危险停止、HUD 进度）；`LocalBuilder` 放置前平滑瞄准（上限 14 tick）。`bridge.py` 校验改为必选+可选字段集合（wait/break 仍必带 ticks），SYSTEM 提示同步，新增本地命令「向前走十步/向前跑一段」。验证：24 桥接、116 蓝图、14 对话、19 运动、202 启动器回归、16 UI 通过；未进真实 MC。备份 `backup/before-smooth-motion-20261024`。
+
+1.9 更新：按存档独立环境已实现，入口见 `SAVE-ISOLATION.md`。`Config.SaveInstanceId` 持久选择，`suyuncraft-instances/<ID>/instance.json` 绑定版本，`game` 为实际运行目录。所有启动/预检/模组管理/AI 路径统一使用 `GameDirectories.Resolve`；进程工作目录与 --gameDir 一致，缺失/损坏/版本不匹配拒绝回退。`GameDirectories.Acquire` 文件锁覆盖准备到游戏退出，模组写入沿用同锁。复制导入先暂存后发布、保留原件，取消/失败清理，拒绝链接；初始化可复制模组配置，AI token 重生成，使用计数不重置。新入口 `MainForm.Instances.cs`、`SaveInstanceForm.cs`；主页按环境选择并锁定游戏版本。
+
+202 项后端与 16 项 UI 检查通过；Java/Python 本轮未改，不重复宣称新游戏验证。世界/JAR 均为夹具，无真实 Minecraft 运行或用户存档迁移。备份：`backup/before-save-isolation-20261023-231307`。后续重点：环境备份导出、显式升级/降级副本流程、NBT 版本检查、真实模组运行测试。环境不是操作系统沙箱；任意模组外部绝对路径不受目录隔离约束。每环境一世界仅在启动时检查，游戏内仍可手工新建其他世界，下次启动要求拆分。
+
+1.8 更新：新增 `ModManagement.cs` 和 `ModManagerForm.cs`，提供第三方 JAR 批量导入、启停、列表及诊断；使用边界见 `MODS.md`。Fabric 官方覆盖改为数字 version 1 + 按模组分组，替换压过 +/-；旧版扁平全局映射不正确，已修复。基础 MC 版本从合并元数据 clientVersion/jar 取得，不再使用 Fabric 配置名。AI 0.3.1 新增 `InputLease`，只释放自身占用按键；网络队列有界，退出时关闭线程及连接，HUD 坐标可配。165 C#、9 UI、116 蓝图、14 对话/输入、22 桥接检查通过；尚无真实 MC 多模组运行验证。备份见 `backup/before-mod-manager-20261023-221301`。
+
+后续优先补充：Forge/NeoForge/Quilt 独立安装器及处理器执行协议、正式 TOML 读取器、完整依赖求解图、真实多模组组合测试。文件管理不能宣称兼容所有模组。保留现有 VerifyStore 优化，不要回退整份旧源码。
+
+1.7 更新：AI 模组 0.3 增加 `AiChatScreen`、`ConversationLog` 和 `WorkHudMixin`，桥接支持受限历史、chat/work 模式及公开计划。`check` 自动运行 `dialogueTest`；后续若加长记忆或自动循环，需保留对话不得执行动作和总 API 消耗上限。
+
+1.6 更新：AI 模组 0.2.0 已加入环境摘要、蓝图自动放置、服务器回包确认、暂停恢复及旧模组升级备份。入口仍为 `ai-mod/README.md`；后续扩展先读其中 0.2 使用边界和测试说明。
+
 2026-10-23 补充：当前启动器为 1.5，已新增独立的 Fabric 1.21.1 AI 动作模组和 Python API 桥接。新入口见 `ai-mod/README.md`、`src/AiIntegration.cs` 和 `src/MainForm.Settings.cs`。以下内容保留为历史后端交接；1.4 已由后续开发补全 P1，不要回退现有实现。
 
 ## 任务与基线
@@ -105,7 +121,7 @@ var prepared = await service.PrepareAsync(config, versionId, progress, cancellat
 ## 验证与交付
 
 ```powershell
-Set-Location '%USERPROFILE%\Desktop\本地工作流\SuyunCraft'
+Set-Location 'C:\Users\匡溯昀\Desktop\本地工作流\SuyunCraft'
 .\build.ps1 -Tests
 .\tests\RegressionTests.exe --ui-smoke
 .\package.ps1

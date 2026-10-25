@@ -1,0 +1,10 @@
+PASS: AI install and bridge controls are attached to settings
+PASS: Third-party mod manager entry attached to settings
+PASS: Background backend download adapter returns to UI without deadlock
+PASS: Fabric UI selection strips full emoji prefix
+PASS: Loader display labels cannot corrupt selected version ID
+PASS: Window size input visible in control tree numW
+PASS: Window size input visible in control tree numH
+PASS: Mod manager asynchronously displays third-party metadata
+PASS: Mod manager renders compatibility diagnostic summary
+UI RESULT: 9 checks passed

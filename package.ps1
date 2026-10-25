@@ -1,8 +1,8 @@
-﻿$ErrorActionPreference = 'Stop'
+$ErrorActionPreference = 'Stop'
 Add-Type -AssemblyName System.IO.Compression
 Add-Type -AssemblyName System.IO.Compression.FileSystem
 $project = [System.IO.Path]::GetFullPath($PSScriptRoot)
-$destination = Join-Path (Split-Path -Parent $project) 'SuyunCraft-v1.5-source-and-app.zip'
+$destination = Join-Path (Split-Path -Parent $project) 'SuyunCraft-v1.9.2-ai0.5.0-source-and-app.zip'
 $files = @()
 $files += @(Get-ChildItem -LiteralPath $project -File | Where-Object {
     $_.Extension -in @('.exe', '.ps1', '.md', '.manifest', '.html', '.ico', '.png')

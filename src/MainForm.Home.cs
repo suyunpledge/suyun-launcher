@@ -2,127 +2,195 @@ using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Drawing;
 using System.IO;
-using System.IO.Compression;
 using System.Linq;
-using System.Net;
-using System.Security.Cryptography;
-using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Web.Script.Serialization;
 using System.Windows.Forms;
 
 namespace SuyunCraft
 {
     partial class MainForm
     {
+        UiCard cardConfig, cardLaunch, cardSave, cardLog;
+        Label lblMemBig, lblLogHint;
+        UiButton btnClearLog;
+
         // ---------------- 主页 ----------------
         void BuildHome()
         {
-            homePage = new Panel();
-            homePage.Dock = DockStyle.Fill;
-            homePage.BackColor = System.Drawing.Color.Transparent;
+            homePage = new UiPage();
+            homePage.HeaderTitle = "主页";
+            homePage.HeaderSubtitle = "离线账户、版本与内存配置";
 
-            // 顶部卡片：账号 + 版本
-            Panel card = new Panel();
-            card.SetBounds(0, 4, 560, 210);
-            card.BackColor = Theme.Card;
-            homePage.Controls.Add(card);
+            // ---------- 游戏配置卡片 ----------
+            cardConfig = new UiCard();
+            cardConfig.Shadow = true;
+            homePage.Controls.Add(cardConfig);
 
-            Label l1 = MkLabel("玩家名（离线登录）", 20, 16, 200);
-            card.Controls.Add(l1);
-            txtUser = new TextBox(); txtUser.Name = "txtUser";
-            txtUser.SetBounds(20, 42, 240, 30);
-            Theme.StyleInput(txtUser);
-            card.Controls.Add(txtUser);
+            Label l1 = MkLabel("玩家名（离线登录）", 20, 16, 220);
+            l1.ForeColor = Theme.Muted;
+            l1.Font = Theme.Caption;
+            cardConfig.Controls.Add(l1);
+            txtUser = new UiTextField(); txtUser.Name = "txtUser";
+            txtUser.SetBounds(20, 38, 250, 34);
+            cardConfig.Controls.Add(txtUser);
 
-            Label l2 = MkLabel("游戏版本", 20, 86, 200);
-            card.Controls.Add(l2);
-            cmbVersion = new ComboBox(); cmbVersion.Name = "cmbVersion";
-            cmbVersion.SetBounds(20, 112, 240, 30);
-            Theme.StyleCombo(cmbVersion);
-            card.Controls.Add(cmbVersion);
-            btnRefreshVer = new Button();
+            Label l2 = MkLabel("游戏版本", 20, 84, 220);
+            l2.ForeColor = Theme.Muted;
+            l2.Font = Theme.Caption;
+            cardConfig.Controls.Add(l2);
+            cmbVersion = new UiComboBox(); cmbVersion.Name = "cmbVersion";
+            cmbVersion.SetBounds(20, 106, 250, 34);
+            cardConfig.Controls.Add(cmbVersion);
+            btnRefreshVer = new UiButton();
             btnRefreshVer.Text = "刷新";
-            btnRefreshVer.SetBounds(270, 110, 70, 32);
+            btnRefreshVer.Icon = UiIcon.Refresh;
+            btnRefreshVer.SetBounds(282, 105, 96, 36);
             Theme.StyleButton(btnRefreshVer, null);
             btnRefreshVer.Click += delegate { ScanLocalVersions(); };
-            card.Controls.Add(btnRefreshVer);
+            cardConfig.Controls.Add(btnRefreshVer);
 
-            Label l3 = MkLabel("运行内存", 20, 152, 200);
-            card.Controls.Add(l3);
-            trackMem = new TrackBar();
-            trackMem.SetBounds(20, 176, 240, 34);
+            Label l3 = MkLabel("运行内存", 20, 154, 220);
+            l3.ForeColor = Theme.Muted;
+            l3.Font = Theme.Caption;
+            cardConfig.Controls.Add(l3);
+            trackMem = new UiTrackBar();
+            trackMem.SetBounds(20, 178, 250, 30);
             trackMem.Minimum = 1; trackMem.Maximum = Math.Max(2, (int)TotalRamGb()); trackMem.TickFrequency = 1;
-            trackMem.ValueChanged += delegate { lblMem.Text = trackMem.Value + " GB"; };
-            card.Controls.Add(trackMem);
+            trackMem.ValueChanged += delegate
+            {
+                lblMem.Text = trackMem.Value + " GB";
+                lblMemBig.Text = trackMem.Value + " GB";
+            };
+            cardConfig.Controls.Add(trackMem);
 
-            chkAutoMem = new CheckBox();
-            chkAutoMem.Text = "自动（推荐）";
-            chkAutoMem.SetBounds(280, 46, 120, 24);
-            chkAutoMem.ForeColor = Theme.Text;
+            lblMem = MkLabel("4 GB", 286, 178, 110);
+            lblMem.Font = Theme.UiBold;
+            lblMem.ForeColor = Theme.Accent;
+            cardConfig.Controls.Add(lblMem);
+
+            chkAutoMem = new UiCheckBox();
+            chkAutoMem.Text = "自动分配（推荐）";
+            chkAutoMem.SetBounds(20, 216, 170, 24);
             chkAutoMem.CheckedChanged += delegate
             {
                 trackMem.Enabled = !chkAutoMem.Checked;
                 if (chkAutoMem.Checked) AutoMemory();
             };
-            card.Controls.Add(chkAutoMem);
+            cardConfig.Controls.Add(chkAutoMem);
 
-            chkIsolation = new CheckBox();
+            chkIsolation = new UiCheckBox();
             chkIsolation.Text = "版本隔离";
-            chkIsolation.SetBounds(280, 152, 130, 24);
-            chkIsolation.ForeColor = Theme.Text;
+            chkIsolation.SetBounds(206, 216, 120, 24);
             ToolTip tt = new ToolTip();
             tt.SetToolTip(chkIsolation, "每个版本使用独立的 mods / config / 存档目录");
-            card.Controls.Add(chkIsolation);
+            cardConfig.Controls.Add(chkIsolation);
 
-            lblMem = MkLabel("4 GB", 280, 176, 100);
-            card.Controls.Add(lblMem);
+            // ---------- 启动卡片 ----------
+            cardLaunch = new UiCard();
+            cardLaunch.Shadow = true;
+            homePage.Controls.Add(cardLaunch);
 
-            // 启动按钮
-            btnLaunch = new Button(); btnLaunch.Name = "btnLaunch";
-            btnLaunch.Text = "▶  启动游戏";
-            btnLaunch.SetBounds(600, 30, 250, 84);
-            Theme.StyleButton(btnLaunch, Theme.Accent);
-            btnLaunch.ForeColor = System.Drawing.Color.White;
+            btnLaunch = new UiButton(); btnLaunch.Name = "btnLaunch";
+            btnLaunch.Kind = UiButtonKind.Primary;
+            btnLaunch.Icon = UiIcon.Play;
+            btnLaunch.Text = "启动游戏";
             btnLaunch.Font = Theme.LaunchBold;
+            btnLaunch.SetBounds(16, 16, 248, 64);
             btnLaunch.Click += delegate { LaunchGame(); };
-            homePage.Controls.Add(btnLaunch);
+            cardLaunch.Controls.Add(btnLaunch);
 
-            lblJava = MkLabel("Java：检测中…", 600, 130, 280);
-            lblJava.ForeColor = Theme.Muted;
+            Label memCap = MkLabel("已分配内存", 16, 92, 200);
+            memCap.ForeColor = Theme.Muted;
+            memCap.Font = Theme.Caption;
+            cardLaunch.Controls.Add(memCap);
+
+            lblMemBig = MkLabel("4 GB", 16, 110, 200);
+            lblMemBig.Font = Theme.LaunchBold;
+            lblMemBig.ForeColor = Theme.Accent;
+            cardLaunch.Controls.Add(lblMemBig);
+
+            Label javaCap = MkLabel("Java 运行时", 16, 154, 200);
+            javaCap.ForeColor = Theme.Muted;
+            javaCap.Font = Theme.Caption;
+            cardLaunch.Controls.Add(javaCap);
+
+            lblJava = MkLabel("Java：检测中…", 16, 174, 248);
+            lblJava.ForeColor = Theme.Text;
+            lblJava.Font = Theme.Caption;
             lblJava.AutoEllipsis = true;
-            homePage.Controls.Add(lblJava);
+            lblJava.Height = 46;
+            cardLaunch.Controls.Add(lblJava);
 
-            // 游戏日志
-            Label lg = MkLabel("游戏运行日志（捕获自 stdout / stderr）", 0, 224, 500);
-            homePage.Controls.Add(lg);
-            Button btnClearLog = new Button();
+            // ---------- 存档环境卡片 ----------
+            cardSave = new UiCard();
+            homePage.Controls.Add(cardSave);
+
+            Label saveCap = MkLabel("存档环境", 20, 12, 200);
+            saveCap.ForeColor = Theme.Muted;
+            saveCap.Font = Theme.Caption;
+            cardSave.Controls.Add(saveCap);
+
+            cmbSaveInstance = new UiComboBox { Name = "cmbSaveInstance", DropDownWidth = 650 };
+            cmbSaveInstance.SetBounds(20, 34, 480, 34);
+            cmbSaveInstance.SelectedIndexChanged += delegate { SaveInstanceChanged(); };
+            cardSave.Controls.Add(cmbSaveInstance);
+
+            btnSaveInstances = new UiButton { Name = "saveInstancesButton", Text = "存档隔离管理", Icon = UiIcon.Grid };
+            btnSaveInstances.SetBounds(520, 33, 160, 36);
+            Theme.StyleButton(btnSaveInstances, null);
+            btnSaveInstances.Click += delegate { ManageSaveInstances(); };
+            cardSave.Controls.Add(btnSaveInstances);
+
+            // ---------- 日志卡片 ----------
+            cardLog = new UiCard();
+            homePage.Controls.Add(cardLog);
+
+            Label lg = MkLabel("游戏运行日志", 20, 12, 300);
+            lg.Font = Theme.UiBold;
+            cardLog.Controls.Add(lg);
+            lblLogHint = MkLabel("捕获自 stdout / stderr", 20, 32, 300);
+            lblLogHint.ForeColor = Theme.TextDisabled;
+            lblLogHint.Font = Theme.Caption;
+            cardLog.Controls.Add(lblLogHint);
+
+            btnClearLog = new UiButton();
             btnClearLog.Text = "清空";
-            btnClearLog.SetBounds(770, 218, 70, 26);
-            Theme.StyleButton(btnClearLog, null);
+            btnClearLog.SetBounds(700, 12, 64, 30);            Theme.StyleButton(btnClearLog, null);
             btnClearLog.Click += delegate { txtGameLog.Clear(); };
-            homePage.Controls.Add(btnClearLog);
-            txtGameLog = new TextBox(); txtGameLog.Name = "txtGameLog";
-            txtGameLog.Multiline = true; txtGameLog.ReadOnly = true; txtGameLog.ScrollBars = ScrollBars.Vertical;
-            txtGameLog.SetBounds(0, 248, 850, 260);
-            txtGameLog.BackColor = System.Drawing.Color.FromArgb(20, 21, 24);
-            txtGameLog.ForeColor = System.Drawing.Color.FromArgb(190, 200, 170);
-            txtGameLog.Font = Theme.Console;
-            txtGameLog.BorderStyle = BorderStyle.FixedSingle;
-            homePage.Controls.Add(txtGameLog);
+            cardLog.Controls.Add(btnClearLog);
 
-            homePage.Resize += delegate
-            {
-                card.Width = Math.Max(410, homePage.Width - 270);
-                btnLaunch.Left = homePage.Width - 250; btnLaunch.Width = 230;
-                lblJava.Left = homePage.Width - 250; lblJava.Width = 230; lblJava.Height = 80;
-                lblJava.AutoEllipsis = true;
-                txtGameLog.Width = homePage.Width - 20;
-                txtGameLog.Height = homePage.Height - 270;
-                btnClearLog.Left = txtGameLog.Right - 80;
-            };
+            txtGameLog = new UiLogView(); txtGameLog.Name = "txtGameLog";
+            txtGameLog.SetBounds(16, 52, 850, 216);
+            cardLog.Controls.Add(txtGameLog);
+
+            homePage.Resize += delegate { LayoutHome(); };
+            LayoutHome();
+        }
+
+        void LayoutHome()
+        {
+            if (suppressLayout) return;
+            int w = homePage.ClientSize.Width;
+            int h = homePage.ClientSize.Height;
+            if (w <= 0 || h <= 0) return;
+
+            int launchW = Ui.Px(280);
+            int configW = Math.Max(Ui.Px(360), w - launchW - Ui.Px(20));
+
+            cardConfig.SetBounds(0, Ui.Px(62), configW, Ui.Px(250));
+            cardLaunch.SetBounds(w - launchW, Ui.Px(62), launchW, Ui.Px(250));
+
+            cardSave.SetBounds(0, Ui.Px(324), w, Ui.Px(76));
+            cmbSaveInstance.Width = Math.Max(Ui.Px(220), w - Ui.Px(220));
+            btnSaveInstances.Left = w - Ui.Px(180);
+
+            int logTop = Ui.Px(412);
+            cardLog.SetBounds(0, logTop, w, Math.Max(Ui.Px(140), h - logTop));
+            btnClearLog.Left = w - Ui.Px(84);
+            txtGameLog.SetBounds(Ui.Px(16), Ui.Px(52), w - Ui.Px(32), Math.Max(Ui.Px(80), cardLog.Height - Ui.Px(68)));
         }
 
         static long TotalRamGb()

@@ -1,0 +1,17 @@
+PASS: AI install and bridge controls are attached to settings
+PASS: Third-party mod manager entry attached to settings
+PASS: Home exposes save environment selector and management entry
+PASS: Background backend download adapter returns to UI without deadlock
+PASS: Fabric UI selection strips full emoji prefix
+PASS: Loader display labels cannot corrupt selected version ID
+PASS: Window size input visible in control tree numW
+PASS: Window size input visible in control tree numH
+PASS: Selecting a save environment selects and locks its bound game version
+PASS: Choosing default directory explicitly exits save isolation
+PASS: Missing save environment stays selected instead of silently using shared saves
+PASS: Mod manager asynchronously displays third-party metadata
+PASS: Mod manager renders compatibility diagnostic summary
+PASS: Save manager asynchronously lists isolated environments
+PASS: Use-selected environment action returns selection without busy-close deadlock
+PASS: Create environment UI completes copy and returns a usable environment
+UI RESULT: 16 checks passed

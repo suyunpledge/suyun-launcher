@@ -24,10 +24,11 @@ final class LocalBuilder {
     private final PlacementReceipt receipt=new PlacementReceipt();
     private int delay, confirmed, existing, total;
     private long started;
+    private BlockPos aimPos; private float aimYaw, aimPitch; private int aimWait;
     LocalBuilder(Consumer<String> say) { this.say=say; }
     private void say(String text) { say.accept(text); }
     boolean hasPlan() { return !remaining.isEmpty(); }
-    void stop() { remaining.clear(); pending=null; running=false; world=null; }
+    void stop() { remaining.clear(); pending=null; running=false; world=null; aimPos=null; }
     String status() { return "建造="+(running?"执行":"预览/暂停")+"，服务器确认="+confirmed+"，已有="+existing+"，剩余="+remaining.size()+"/"+total; }
     void preview(MinecraftClient mc,String name,String id) {
         if (!Blueprints.MATERIALS.contains(id)) throw new IllegalArgumentException("材料仅支持圆石、石头、泥土、橡木板、玻璃、砖块、砂岩");
@@ -69,6 +70,7 @@ final class LocalBuilder {
         if (mc.world!=world || mc.player==null) { stop(); return; }
         if (!running) return;
         if (mc.isPaused()) return;
+        if (mc.interactionManager==null) { pause("交互控制器未就绪"); return; }
         if (mc.currentScreen!=null || mc.player.getHealth()<8 || mc.player.isDead() || mc.player.isOnFire()) { pause("界面打开、低血量或着火"); return; }
         if (System.nanoTime()-started>180_000_000_000L) { pause("单次执行达到三分钟"); return; }
         if (mc.world.getEntitiesByClass(net.minecraft.entity.mob.HostileEntity.class,mc.player.getBoundingBox().expand(6),e->e.isAlive()).size()>0) { pause("附近有敌对生物"); return; }
@@ -81,6 +83,24 @@ final class LocalBuilder {
                 return;
             }
             if (result==PlacementReceipt.Result.TIMEOUT) { pause("等待服务器方块回包超时，不会自动重复发送"); }
+            return;
+        }
+        if (aimPos!=null) {
+            var player=mc.player;
+            player.setYaw(Motion.turnTowards(player.getYaw(),aimYaw,Motion.YAW_SPEED));
+            player.setPitch(MathHelper.clamp(Motion.turnTowards(player.getPitch(),aimPitch,Motion.PITCH_SPEED),-90f,90f));
+            if (!Motion.arrived(player.getYaw(),player.getPitch(),aimYaw,aimPitch) && --aimWait>0) return;
+            var target=aimPos; aimPos=null;
+            var hit=findSupport(mc,target);
+            if (hit==null) { delay=2; return; }
+            int slot=-1;
+            for (int i=0;i<9;i++) { var s=mc.player.getInventory().getStack(i); if(!s.isEmpty() && s.getItem() instanceof BlockItem b && b.getBlock()==material) {slot=i;break;} }
+            if (slot<0) { pause("快捷栏中没有可用材料"); return; }
+            mc.player.getInventory().selectedSlot=slot;
+            pending=target; receipt.reset();
+            var result=mc.interactionManager.interactBlock(mc.player,Hand.MAIN_HAND,hit);
+            if (!result.isAccepted()) { pending=null; pause("本地放置检查失败"); return; }
+            mc.player.swingHand(Hand.MAIN_HAND);
             return;
         }
         if (--delay>0) return;
@@ -96,14 +116,8 @@ final class LocalBuilder {
             int slot=-1;
             for (int i=0;i<9;i++) { var s=mc.player.getInventory().getStack(i); if(!s.isEmpty() && s.getItem() instanceof BlockItem b && b.getBlock()==material) {slot=i;break;} }
             if (slot<0) { pause("快捷栏中没有可用材料"); return; }
-            mc.player.getInventory().selectedSlot=slot;
             Vec3d aim=hit.getPos().subtract(mc.player.getEyePos());
-            mc.player.setYaw((float)Math.toDegrees(Math.atan2(-aim.x,aim.z)));
-            mc.player.setPitch((float)-Math.toDegrees(Math.atan2(aim.y,Math.sqrt(aim.x*aim.x+aim.z*aim.z))));
-            pending=p; receipt.reset();
-            var result=mc.interactionManager.interactBlock(mc.player,Hand.MAIN_HAND,hit);
-            if (!result.isAccepted()) { pending=null; pause("本地放置检查失败"); return; }
-            mc.player.swingHand(Hand.MAIN_HAND);
+            aimPos=p; aimYaw=Motion.aimYaw(aim.x,aim.z); aimPitch=Motion.aimPitch(aim.x,aim.y,aim.z); aimWait=14;
             return;
         }
         pause("没有可见、可触及且有支撑的放置位置；请调整站位或手动补充支撑");

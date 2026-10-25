@@ -114,8 +114,8 @@ namespace SuyunCraft
             if (context.Loader != "fabric")
             {
                 issues.Add(new LaunchIssue(context.Loader == "vanilla" ? "MODS_WITHOUT_LOADER" : "MOD_LOADER_UNCHECKED",
-                    context.Loader == "vanilla" ? "当前版本未检测到模组加载器，mods 内的模组可能不会生效。" : "当前加载器的模组预检尚未实现：" + context.Loader));
-                return issues;
+                    context.Loader == "vanilla" ? "当前版本未检测到模组加载器，mods 内的模组可能不会生效。" : "当前仅检查加载器标记，尚未解析 " + context.Loader + " 的依赖规则。"));
+                if (context.Loader == "vanilla") return issues;
             }
             if (paths.Length > 2048)
             {
@@ -135,13 +135,20 @@ namespace SuyunCraft
                     using (var archive = ZipFile.OpenRead(safePath))
                     {
                         if (archive.Entries.Count > 100000) throw new InvalidDataException("ZIP 条目数超过限制");
+                        var loaders = ModManagement.DetectLoaders(archive);
+                        if (context.Loader != "fabric")
+                        {
+                            if (context.Loader != "vanilla" && loaders.Count > 0 && !ModManagement.RecognizesLoader(loaders, context.Loader))
+                                issues.Add(new LaunchIssue("MOD_LOADER_MISMATCH", name + " 的加载器标记为 " + string.Join(" / ", loaders) + "，当前为 " + context.Loader + "。"));
+                            continue;
+                        }
                         ModMetadata mod = null;
                         foreach (var reader in readers) { mod = reader.Read(archive); if (mod != null) break; }
                         if (mod == null)
                         {
-                            bool forge = archive.GetEntry("META-INF/mods.toml") != null || archive.GetEntry("META-INF/neoforge.mods.toml") != null;
-                            issues.Add(new LaunchIssue(forge ? "MOD_LOADER_MISMATCH" : "MOD_METADATA_UNCHECKED",
-                                name + (forge ? " 含 Forge/NeoForge 元数据，尚未确认其 Fabric 兼容性。" : " 未识别到受支持的 Fabric 元数据。")));
+                            bool mismatch = loaders.Count > 0 && !loaders.Contains("fabric");
+                            issues.Add(new LaunchIssue(mismatch ? "MOD_LOADER_MISMATCH" : "MOD_METADATA_UNCHECKED",
+                                name + (mismatch ? " 的加载器标记为 " + string.Join(" / ", loaders) + "，尚未确认其 Fabric 兼容性。" : " 未识别到受支持的 Fabric 元数据。")));
                             continue;
                         }
                         mod.FileName = name;
@@ -166,7 +173,8 @@ namespace SuyunCraft
                     issues.Add(new LaunchIssue("MOD_METADATA_INVALID", name + " 无法读取模组元数据：" + ex.Message, true));
                 }
             }
-            foreach (var duplicate in mods.GroupBy(m => m.Id).Where(g => g.Count() > 1))
+            if (context.Loader != "fabric") return issues;
+            foreach (var duplicate in mods.Where(m => !m.IsNested).GroupBy(m => m.Id).Where(g => g.Count() > 1))
                 issues.Add(new LaunchIssue("MOD_DUPLICATE_ID", "多个顶层模组声明相同 ID " + duplicate.Key + "：" +
                     string.Join(", ", duplicate.Select(m => m.FileName)) + "。请检查是否重复安装。"));
             // 完整依赖解析：版本范围、breaks/conflicts、嵌套 jar 提供者、加载器覆盖配置

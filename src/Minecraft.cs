@@ -12,6 +12,8 @@ namespace SuyunCraft
     {
         public string Id;
         public bool IsFabric;
+        public string Loader = "unknown";
+        public override string ToString() { return (Loader == "vanilla" ? "" : "[" + Loader + "] ") + Id; }
     }
 
     static class LaunchPlanner
@@ -325,8 +327,7 @@ namespace SuyunCraft
             var mj = merged;
 
             string gameRoot = gameDir;
-            string actualGameDir = gameRoot;
-            if (isolation) actualGameDir = Path.GetDirectoryName(FileSafety.VersionFile(gameRoot, versionId, ".json"));
+            string actualGameDir = GameDirectories.Resolve(cfg, versionId, isolation);
             if (prepareNatives) Directory.CreateDirectory(actualGameDir);
 
             string verDir = Path.GetDirectoryName(FileSafety.VersionFile(gameRoot, versionId, ".json"));
@@ -457,6 +458,24 @@ namespace SuyunCraft
                 bool hasRes = false;
                 foreach (string g in game) if (g == "--width") { hasRes = true; break; }
                 if (!hasRes) { game.Add("--width"); game.Add(winW.ToString()); game.Add("--height"); game.Add(winH.ToString()); }
+            }
+
+            if (!string.IsNullOrEmpty(cfg.SaveInstanceId))
+            {
+                // Normalize even hardcoded/custom version arguments to this environment.
+                for (int i = game.Count - 1; i >= 0; i--)
+                {
+                    if (game[i].StartsWith("--gameDir=", StringComparison.Ordinal)) game.RemoveAt(i);
+                    else if (game[i] == "--gameDir")
+                    {
+                        if (i + 1 >= game.Count || game[i + 1].StartsWith("--")) throw new InvalidDataException("版本的 --gameDir 参数缺少值");
+                        game.RemoveRange(i, 2);
+                    }
+                }
+                game.Add("--gameDir"); game.Add(actualGameDir);
+                foreach (string arg in jvm)
+                    if (new[] { "-Duser.dir=", "-Dfabric.modsFolder=", "-Dfabric.addMods=", "-Dfabric.gameDir=" }.Any(prefix => arg.StartsWith(prefix, StringComparison.Ordinal)))
+                        throw new InvalidDataException("存档隔离时不允许覆盖游戏/模组目录的 JVM 参数：" + arg.Split('=')[0]);
             }
 
             string mainClass = Json.S(mj, "mainClass", "net.minecraft.client.main.Main");

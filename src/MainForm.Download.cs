@@ -18,112 +18,166 @@ namespace SuyunCraft
     partial class MainForm
     {
         // ---------------- 下载页 ----------------
+        UiCard cardDlToolbar, cardDlList, cardDlAction;
+        Label lblDlCount;
+        UiListHeader listHeader;
+
         void BuildDownload()
         {
-            dlPage = new Panel();
-            dlPage.Dock = DockStyle.Fill;
-            dlPage.BackColor = System.Drawing.Color.Transparent;
+            dlPage = new UiPage();
+            dlPage.HeaderTitle = "下载游戏版本";
+            dlPage.HeaderSubtitle = "从官方清单获取版本，可同时安装 Fabric 模组加载器";
 
-            Label lt = MkLabel("下载游戏版本", 0, 0, 300);
-            lt.Font = Theme.HeadingBold;
-            dlPage.Controls.Add(lt);
+            // ---------- 工具条 ----------
+            cardDlToolbar = new UiCard();
+            dlPage.Controls.Add(cardDlToolbar);
 
-            cmbFilter = new ComboBox();
-            cmbFilter.SetBounds(0, 34, 110, 30);
-            Theme.StyleCombo(cmbFilter);
+            cmbFilter = new UiComboBox();
+            cmbFilter.SetBounds(20, 14, 120, 34);
             cmbFilter.Items.AddRange(new object[] { "正式版", "正式版+快照", "全部" });
             cmbFilter.SelectedIndex = 0;
             cmbFilter.SelectedIndexChanged += delegate { ApplyFilter(); };
-            dlPage.Controls.Add(cmbFilter);
+            cardDlToolbar.Controls.Add(cmbFilter);
 
-            txtSearch = new TextBox();
-            txtSearch.SetBounds(120, 36, 200, 28);
-            Theme.StyleInput(txtSearch);
-            txtSearch.HandleCreated += delegate { CueBanner.Set(txtSearch, "输入版本号过滤"); };
+            txtSearch = new UiTextField();
+            txtSearch.SetBounds(152, 14, 220, 34);
+            txtSearch.SetPlaceholder("输入版本号过滤");
             txtSearch.TextChanged += delegate { ApplyFilter(); };
-            dlPage.Controls.Add(txtSearch);
+            cardDlToolbar.Controls.Add(txtSearch);
 
-            Button btnLoad = new Button();
+            UiButton btnLoad = new UiButton();
             btnLoad.Text = "获取版本列表";
-            btnLoad.SetBounds(330, 34, 120, 32);
-            Theme.StyleButton(btnLoad, null);
+            btnLoad.Icon = UiIcon.Refresh;
+            btnLoad.SetBounds(384, 13, 140, 36);
             btnLoad.Click += delegate { LoadManifest(); };
-            dlPage.Controls.Add(btnLoad);
+            cardDlToolbar.Controls.Add(btnLoad);
 
-            // Fabric
-            chkFabric = new CheckBox();
-            chkFabric.Text = "安装 Fabric（模组加载器）";
-            chkFabric.SetBounds(0, 78, 190, 24);
-            chkFabric.ForeColor = Theme.Text;
+            // ---------- 列表 ----------
+            cardDlList = new UiCard();
+            dlPage.Controls.Add(cardDlList);
+
+            Label lList = MkLabel("版本清单", 20, 12, 220);
+            lList.Font = Theme.UiBold;
+            cardDlList.Controls.Add(lList);
+            lblDlCount = MkLabel("尚未加载", 20, 32, 220);
+            lblDlCount.ForeColor = Theme.TextDisabled;
+            lblDlCount.Font = Theme.Caption;
+            cardDlList.Controls.Add(lblDlCount);
+
+            chkFabric = new UiCheckBox();
+            chkFabric.Text = "安装 Fabric";
+            chkFabric.SetBounds(0, 16, 110, 24);
             ToolTip ttFabric = new ToolTip();
             ttFabric.SetToolTip(chkFabric, "勾选后为所选版本安装 Fabric Loader，用于加载 mods 目录中的模组");
             chkFabric.CheckedChanged += delegate
             {
                 cmbFabric.Visible = chkFabric.Checked;
                 if (chkFabric.Checked && fabricLoaders == null) LoadFabricLoaders();
+                LayoutDownload();
             };
-            dlPage.Controls.Add(chkFabric);
-            cmbFabric = new ComboBox();
-            cmbFabric.SetBounds(200, 76, 160, 28);
-            Theme.StyleCombo(cmbFabric);
+            cardDlList.Controls.Add(chkFabric);
+
+            cmbFabric = new UiComboBox();
+            cmbFabric.SetBounds(0, 14, 150, 32);
             cmbFabric.Visible = false;
-            dlPage.Controls.Add(cmbFabric);
+            cardDlList.Controls.Add(cmbFabric);
 
-            lvVersions = new ListView();
-            lvVersions.SetBounds(0, 112, 700, 270);
-            lvVersions.View = View.Details; lvVersions.FullRowSelect = true; lvVersions.HideSelection = false;
-            lvVersions.BackColor = System.Drawing.Color.FromArgb(24, 25, 28);
-            lvVersions.ForeColor = Theme.Text;
-            lvVersions.BorderStyle = BorderStyle.FixedSingle;
-            lvVersions.Columns.Add("版本", 220);
-            lvVersions.Columns.Add("类型", 90);
-            lvVersions.Columns.Add("发布时间", 160);
-            lvVersions.Columns.Add("状态", 110);
+            lvVersions = new UiListView();
+            lvVersions.SetBounds(16, 88, 700, 240);
+            lvVersions.Columns.Add("版本", Ui.Px(240));
+            lvVersions.Columns.Add("类型", Ui.Px(100));
+            lvVersions.Columns.Add("发布时间", Ui.Px(170));
+            lvVersions.Columns.Add("状态", Ui.Px(120));
             lvVersions.DoubleClick += delegate { InstallSelected(); };
-            dlPage.Controls.Add(lvVersions);
+            cardDlList.Controls.Add(lvVersions);
 
-            btnInstall = new Button();
-            btnInstall.Text = "⬇  下载并安装所选版本";
-            btnInstall.SetBounds(0, 392, 250, 46);
-            Theme.StyleButton(btnInstall, Theme.Blue);
-            btnInstall.ForeColor = System.Drawing.Color.White;
+            listHeader = new UiListHeader();
+            listHeader.Captions.AddRange(new string[] { "版本", "类型", "发布时间", "状态" });
+            listHeader.SetBounds(16, 58, 700, 30);
+            cardDlList.Controls.Add(listHeader);
+
+            // ---------- 操作区 ----------
+            cardDlAction = new UiCard();
+            dlPage.Controls.Add(cardDlAction);
+
+            btnInstall = new UiButton();
+            btnInstall.Text = "下载并安装所选版本";
+            btnInstall.Icon = UiIcon.Download;
+            btnInstall.Kind = UiButtonKind.Success;
+            btnInstall.SetBounds(20, 16, 230, 42);
             btnInstall.Click += delegate { InstallSelected(); };
-            dlPage.Controls.Add(btnInstall);
+            cardDlAction.Controls.Add(btnInstall);
 
             bar = new ThemeProgressBar();
-            bar.SetBounds(270, 396, 460, 20);
-            dlPage.Controls.Add(bar);
+            bar.SetBounds(266, 20, 380, 18);
+            cardDlAction.Controls.Add(bar);
 
-            lblDl = MkLabel("", 270, 420, 560);
+            lblDl = MkLabel("", 266, 44, 460);
             lblDl.ForeColor = Theme.Muted;
-            dlPage.Controls.Add(lblDl);
+            lblDl.Font = Theme.Caption;
+            cardDlAction.Controls.Add(lblDl);
 
-            btnCancelDl = new Button();
+            btnCancelDl = new UiButton();
             btnCancelDl.Text = "取消";
-            btnCancelDl.SetBounds(750, 392, 80, 32);
+            btnCancelDl.SetBounds(700, 18, 80, 32);
             btnCancelDl.Enabled = false;
-            Theme.StyleButton(btnCancelDl, null);
             btnCancelDl.Click += delegate { if (mgr != null) mgr.Cancelled = true; };
-            dlPage.Controls.Add(btnCancelDl);
+            cardDlAction.Controls.Add(btnCancelDl);
 
             dlTimer = new System.Windows.Forms.Timer();
             dlTimer.Interval = 300;
-
-
             dlTimer.Tick += DlTimerTick;
 
-            dlPage.Resize += delegate
+            dlPage.Resize += delegate { LayoutDownload(); };
+            LayoutDownload();
+        }
+
+        void LayoutDownload()
+        {
+            if (suppressLayout) return;
+            int w = dlPage.ClientSize.Width;
+            int h = dlPage.ClientSize.Height;
+            if (w <= 0 || h <= 0) return;
+
+            cardDlToolbar.SetBounds(0, Ui.Px(56), w, Ui.Px(62));
+            cardDlAction.SetBounds(0, h - Ui.Px(82), w, Ui.Px(68));
+
+            int listTop = Ui.Px(130);
+            int listH = Math.Max(Ui.Px(160), h - listTop - Ui.Px(92));
+            cardDlList.SetBounds(0, listTop, w, listH);
+
+            int lvX = Ui.Px(16);
+            int lvW = Math.Max(Ui.Px(320), w - Ui.Px(32));
+            int hdrH = Ui.Px(30);
+            listHeader.SetBounds(lvX, Ui.Px(58), lvW, hdrH);
+            lvVersions.SetBounds(lvX, Ui.Px(58) + hdrH, lvW, Math.Max(Ui.Px(80), listH - Ui.Px(74) - hdrH));
+
+            // 列宽铺满列表，避免最后一列右侧留出系统色空白
+            int cVer = Ui.Px(240), cType = Ui.Px(110), cTime = Ui.Px(170);
+            int cState = Math.Max(Ui.Px(90), lvW - cVer - cType - cTime);
+            if (lvVersions.Columns.Count >= 4)
             {
-                lvVersions.Width = dlPage.Width - 20;
-                lvVersions.Height = Math.Max(180, dlPage.Height - 240);
-                bar.Width = Math.Max(100, dlPage.Width - 380);
-                btnCancelDl.Left = dlPage.Width - 90;
-                lblDl.Width = Math.Max(100, dlPage.Width - 280);
-                btnInstall.Top = lvVersions.Bottom + 16;
-                bar.Top = lvVersions.Bottom + 20;
-                lblDl.Top = lvVersions.Bottom + 46;
-                btnCancelDl.Top = lvVersions.Bottom + 16;
-            };
+                lvVersions.Columns[0].Width = cVer;
+                lvVersions.Columns[1].Width = cType;
+                lvVersions.Columns[2].Width = cTime;
+                lvVersions.Columns[3].Width = cState;
+            }
+            listHeader.Widths.Clear();
+            listHeader.Widths.Add(cVer);
+            listHeader.Widths.Add(cType);
+            listHeader.Widths.Add(cTime);
+            listHeader.Widths.Add(cState);
+            listHeader.Invalidate();
+
+            chkFabric.Left = w - Ui.Px(150);
+            cmbFabric.Left = w - Ui.Px(200);
+            cmbFabric.Visible = chkFabric.Checked;
+            if (chkFabric.Checked) chkFabric.Left = w - Ui.Px(320);
+
+            btnInstall.SetBounds(Ui.Px(20), Ui.Px(13), Ui.Px(230), Ui.Px(42));
+            bar.SetBounds(Ui.Px(266), Ui.Px(18), Math.Max(Ui.Px(120), w - Ui.Px(266) - Ui.Px(120)), Ui.Px(18));
+            lblDl.SetBounds(Ui.Px(266), Ui.Px(42), Math.Max(Ui.Px(120), w - Ui.Px(280)), Ui.Px(20));
+            btnCancelDl.Left = w - Ui.Px(104);
         }
 
         void DlTimerTick(object sender, EventArgs e)
@@ -200,6 +254,10 @@ namespace SuyunCraft
                 it.Tag = v;
                 lvVersions.Items.Add(it);
             }
+            if (lblDlCount != null)
+                lblDlCount.Text = manifest.Count == 0
+                    ? "尚未加载"
+                    : "显示 " + lvVersions.Items.Count + " / " + manifest.Count + " 个版本";
         }
 
         async void LoadFabricLoaders()
@@ -302,6 +360,7 @@ namespace SuyunCraft
             var manager = new DownloadManager { Mirror = cfg.Mirror };
             foreach (var item in items) manager.Queue.Enqueue(item);
             mgr = manager; lastBytes = 0; lastSample = default(DateTime); bar.Value = 0;
+            bar.Pulse = true;
             btnCancelDl.Enabled = true;
             dlTimer.Start();
             try
@@ -313,7 +372,7 @@ namespace SuyunCraft
             }
             finally
             {
-                if (!IsDisposed) { dlTimer.Stop(); btnCancelDl.Enabled = false; }
+                if (!IsDisposed) { dlTimer.Stop(); btnCancelDl.Enabled = false; bar.Pulse = false; }
                 if (mgr == manager) mgr = null;
             }
         }

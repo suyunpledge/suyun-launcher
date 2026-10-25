@@ -64,6 +64,7 @@ namespace SuyunCraft
             if (names.Any(n => n.StartsWith("org.quiltmc:quilt-loader:", StringComparison.Ordinal))) return "quilt";
             if (names.Any(n => n.StartsWith("net.fabricmc:fabric-loader:", StringComparison.Ordinal))) return "fabric";
             string main = Json.S(metadata, "mainClass", "");
+            if (main.StartsWith("org.quiltmc.loader.", StringComparison.Ordinal)) return "quilt";
             if (main.StartsWith("net.fabricmc.loader.", StringComparison.Ordinal)) return "fabric";
             return main == "net.minecraft.client.main.Main" || main == "net.minecraft.launchwrapper.Launch" ? "vanilla" : "unknown";
         }
@@ -130,12 +131,11 @@ namespace SuyunCraft
                 }, progress, cancellation).ConfigureAwait(false);
                 LastReport.Loader = loader.Detect(metadata);
                 LastReport.RequiredJava = (int)Json.L(Json.O(metadata, "javaVersion"), "majorVersion", 8);
-                string gameDirectory = cfg.VersionIsolation ? Path.GetDirectoryName(FileSafety.VersionFile(cfg.GameDir, version, ".json")) : Path.GetFullPath(cfg.GameDir);
+                string gameDirectory = GameDirectories.Resolve(cfg, version);
                 await Stage(LaunchStage.Preflight, "检查模组元数据…", () => {
+                    SaveIsolation.CheckWorlds(gameDirectory, !string.IsNullOrEmpty(cfg.SaveInstanceId), true);
                     var context = new LaunchContext(version, gameDirectory, LastReport.Loader);
-                    string mcVersion = Json.S(metadata, "clientVersion", "");
-                    if (mcVersion.Length == 0) mcVersion = Json.S(metadata, "inheritsFrom", "");
-                    if (mcVersion.Length == 0) mcVersion = version;
+                    string mcVersion = ModManagement.GameVersion(metadata, version);
                     foreach (var check in checks)
                     {
                         cancellation.ThrowIfCancellationRequested();

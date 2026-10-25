@@ -65,6 +65,7 @@ namespace SuyunCraft
         public int WindowHeight = 480;
         public bool CaptureGameLog = true;
         public string LastVersion = "";
+        public string SaveInstanceId = "";
 
         // All configuration members are scalars/strings; isolate an in-flight launch from UI edits.
         public Config Snapshot() { return (Config)MemberwiseClone(); }
@@ -98,6 +99,7 @@ namespace SuyunCraft
                         c.WindowWidth = (int)Json.L(d, "WindowWidth", 854); c.WindowHeight = (int)Json.L(d, "WindowHeight", 480);
                         c.CaptureGameLog = Json.B(d, "CaptureGameLog", true);
                         c.LastVersion = Json.S(d, "LastVersion", "");
+                        c.SaveInstanceId = Json.S(d, "SaveInstanceId", "");
                     }
                 }
             }

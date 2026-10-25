@@ -16,7 +16,7 @@ namespace SuyunCraft
         public static void Run(string root, Action<bool, string> check)
         {
             string bundle = Path.Combine(root, "bundle"), game = Path.Combine(root, "game");
-            Jar(Path.Combine(bundle, "dist", "suyuncraft-ai-0.3.0.jar"), "suyuncraft_ai");
+            Jar(Path.Combine(bundle, "dist", "suyuncraft-ai-0.5.0.jar"), "suyuncraft_ai");
             Jar(Path.Combine(bundle, "dist", "fabric-api-0.106.0+1.21.1.jar"), "fabric-api");
             FileSafety.WriteText(FileSafety.VersionFile(game, "1.21.1", ".json"), "{\"id\":\"1.21.1\",\"mainClass\":\"net.minecraft.client.main.Main\"}");
             FileSafety.WriteText(FileSafety.VersionFile(game, "fabric-ai", ".json"), "{\"id\":\"fabric-ai\",\"inheritsFrom\":\"1.21.1\",\"mainClass\":\"net.fabricmc.loader.impl.launch.knot.KnotClient\"}");
@@ -38,6 +38,16 @@ namespace SuyunCraft
             check(!File.Exists(Path.Combine(isolated,"mods","suyuncraft-ai-0.1.0.jar")) &&
                 Directory.GetFiles(Path.Combine(isolated,"suyuncraft-ai-backups"),"*.jar",SearchOption.AllDirectories).Length==1,
                 "AI upgrade quarantines old version instead of duplicating mod IDs");
+            Jar(Path.Combine(isolated, "mods", "renamed-ai.jar"), "suyuncraft_ai");
+            Jar(Path.Combine(isolated, "mods", "somebody-elses-mod.jar"), "third_party");
+            AiIntegration.Install(config, "fabric-ai", bundle);
+            check(!File.Exists(Path.Combine(isolated, "mods", "renamed-ai.jar")) && File.Exists(Path.Combine(isolated, "mods", "somebody-elses-mod.jar")), "AI upgrade identifies renamed old copies and preserves third-party jars");
+            string stable = Path.Combine(isolated, "mods", "suyuncraft-ai.jar");
+            File.Delete(stable); Jar(stable, "unrelated_mod");
+            bool protectedFile = false;
+            try { AiIntegration.Install(config, "fabric-ai", bundle); } catch (InvalidDataException) { protectedFile = true; }
+            using (var zip = ZipFile.OpenRead(stable))
+                check(protectedFile && new FabricModMetadataReader().Read(zip).Id == "unrelated_mod", "AI installer never overwrites unrelated same-name jar");
             bool rejected = false;
             try { AiIntegration.Install(config, "1.21.1", bundle); } catch (InvalidOperationException) { rejected = true; }
             check(rejected, "AI installer rejects a vanilla profile");

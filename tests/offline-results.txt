@@ -1,0 +1,63 @@
+[build] OK -> SuyunCraft.exe
+PASS: Boolean settings survive save/load
+PASS: Numeric settings survive save/load
+PASS: Legacy string booleans accepted
+PASS: Invalid numeric settings clamped
+PASS: Reject unsafe path ../outside
+PASS: Reject unsafe path a/../../outside
+PASS: Reject unsafe path C:\outside
+PASS: Reject unsafe path \\server\share
+PASS: Reject unsafe path file:stream
+PASS: Reject unsafe path a/CON.txt
+PASS: Reject unsafe path a/b. 
+PASS: Reject unsafe version id
+PASS: Normal library path accepted
+PASS: Reject plaintext downloads
+PASS: Reject file URLs
+PASS: Detect equal-size file corruption using SHA1
+PASS: Detect incorrect file length
+PASS: Atomic replacement of existing files
+PASS: Paths longer than 260 characters work
+PASS: ZIP traversal rejected
+PASS: ZIP cannot overwrite outside its destination
+PASS: Windows process argument roundtrip 0
+PASS: Windows process argument roundtrip 1
+PASS: Windows process argument roundtrip 2
+PASS: Windows process argument roundtrip 3
+PASS: Windows process argument roundtrip 4
+PASS: Windows process argument roundtrip 5
+PASS: Windows process argument roundtrip 6
+PASS: Windows process argument roundtrip 7
+PASS: Windows process argument roundtrip 8
+PASS: Windows process argument roundtrip 9
+PASS: Parse quoted JVM values and empty arguments
+PASS: Reject unclosed JVM quote
+PASS: Absent rules allow library
+PASS: macOS-only library excluded on Windows
+PASS: Empty explicit rules disallow
+PASS: Last matching rule wins
+PASS: OS version expression evaluated
+PASS: False feature requirements match default state
+PASS: Maven classifier and extension
+PASS: Maven traversal rejected
+PASS: Fabric uses parent client jar
+PASS: Child overrides parent library version
+PASS: Parent arguments precede child arguments
+PASS: Inherited jar on classpath
+PASS: Custom resolution feature expanded once
+PASS: Invalid offline player name rejected
+PASS: Cyclic version inheritance rejected
+PASS: Legacy game directory remains one argument
+PASS: Collect both Java artifact and native
+PASS: Native architecture placeholder resolved
+PASS: Native ZIP traversal fails launch plan
+PASS: First asset phase discovers index
+PASS: Second asset phase discovers hashed objects
+PASS: All assets complete after object download
+PASS: Legacy virtual and resource maps materialized
+PASS: Failed worker reports completion and error
+PASS: Failed download preserves destination and progress
+PASS: Failed download leaves no partial files
+PASS: Pre-cancelled manager completes
+PASS: Concurrent JSON parsing
+RESULT: 61 checks passed. Fixtures: C:\Users\匡溯昀\Desktop\本地工作流\SuyunCraft\tests\artifacts\20261021-195601-72c579ae72874da98c216361d0e80381

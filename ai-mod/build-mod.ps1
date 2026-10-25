@@ -18,7 +18,7 @@ if (-not $Gradle) { $Gradle = Join-Path $PSScriptRoot 'gradlew.bat' }
 & $Gradle --no-daemon build
 if ($LASTEXITCODE -ne 0) { throw 'Fabric mod build failed' }
 New-Item -ItemType Directory -Force -Path dist | Out-Null
-Copy-Item -LiteralPath 'build\libs\suyuncraft-ai-0.3.0.jar' -Destination dist
+Copy-Item -LiteralPath 'build\libs\suyuncraft-ai-0.5.0.jar' -Destination dist
 $apiName = 'fabric-api-0.106.0+1.21.1.jar'
 $apiUrl = 'https://maven.fabricmc.net/net/fabricmc/fabric-api/fabric-api/0.106.0+1.21.1/' + $apiName
 $hashContent = (Invoke-WebRequest -UseBasicParsing ($apiUrl + '.sha256')).Content

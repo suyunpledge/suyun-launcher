@@ -61,7 +61,7 @@ namespace SuyunCraft
             Jar(mods, "bad-json", "{");
             check(Scan(mods).Any(i => i.BlocksLaunch && i.Code == "MOD_METADATA_INVALID"), "Broken Fabric JSON blocks launch");
             check(Scan(mods, "vanilla").Single().Code == "MODS_WITHOUT_LOADER", "Vanilla warns without loading or inspecting mod contents");
-            check(Scan(mods, "neoforge").Single().Code == "MOD_LOADER_UNCHECKED", "Unsupported loaders report incomplete preflight");
+            check(Scan(mods, "neoforge").Any(i => i.Code == "MOD_LOADER_UNCHECKED") && Scan(mods, "neoforge").Any(i => i.Code == "MOD_LOADER_MISMATCH"), "Other loaders report incomplete dependencies and mismatched markers");
             string bounded = Path.Combine(root, "bounded");
             Jar(bounded, "oversized", new string('x', 1024 * 1024 + 1));
             check(Scan(bounded).Any(i => i.BlocksLaunch), "Oversized compressed metadata rejected");

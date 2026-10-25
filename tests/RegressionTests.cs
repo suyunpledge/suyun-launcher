@@ -74,6 +74,8 @@ namespace SuyunCraft
                 System.Windows.Forms.Application.DoEvents();
                 Check(form.Controls.Find("aiInstallButton", true).Length == 1 && form.Controls.Find("aiBridgeButton", true).Length == 1,
                     "AI install and bridge controls are attached to settings");
+                Check(form.Controls.Find("modManagerButton", true).Length == 1, "Third-party mod manager entry attached to settings");
+                Check(form.Controls.Find("cmbSaveInstance", true).Length == 1 && form.Controls.Find("saveInstancesButton", true).Length == 1, "Home exposes save environment selector and management entry");
                 var createDownload = typeof(MainForm).GetMethod("CreateDownloadCallback", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
                 var download = (Func<List<DlItem>, CancellationToken, Task>)createDownload.Invoke(form, null);
                 var adapterTask = Task.Run(() => download(new List<DlItem>(), CancellationToken.None));
@@ -87,6 +89,8 @@ namespace SuyunCraft
                 combo.Items.Clear(); combo.Items.Add("[F] fabric-loader-test"); combo.SelectedIndex = 0;
                 var selected = typeof(MainForm).GetMethod("SelectedVersion", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
                 Check((string)selected.Invoke(form, null) == "fabric-loader-test", "Fabric UI selection strips full emoji prefix");
+                combo.Items.Clear(); combo.Items.Add(new LocalVer { Id = "custom-forge-profile", Loader = "forge" }); combo.SelectedIndex = 0;
+                Check((string)selected.Invoke(form, null) == "custom-forge-profile", "Loader display labels cannot corrupt selected version ID");
                 var switchPage = typeof(MainForm).GetMethod("SwitchPage", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
                 foreach (string page in new[] { "home", "dl", "set" })
                 {
@@ -102,6 +106,75 @@ namespace SuyunCraft
                     var item = (System.Windows.Forms.Control)typeof(MainForm).GetField(control, System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic).GetValue(form);
                     Check(item.Parent != null, "Window size input visible in control tree " + control);
                 }
+                var configField = typeof(MainForm).GetField("cfg", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                var actualConfig = (Config)configField.GetValue(form);
+                try
+                {
+                    var isolatedConfig = ModManagementTests.Fixture(Path.Combine(root, "ui-home-instances"));
+                    var environment = SaveIsolation.Create(isolatedConfig, "custom-profile", "生存测试", null, false, CancellationToken.None);
+                    configField.SetValue(form, isolatedConfig);
+                    combo.Items.Clear(); combo.Items.Add(new LocalVer { Id = "custom-profile", Loader = "fabric" }); combo.Items.Add(new LocalVer { Id = "1.21.1", Loader = "vanilla" }); combo.SelectedIndex = 1;
+                    var refreshInstances = typeof(MainForm).GetMethod("RefreshSaveInstances", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
+                    refreshInstances.Invoke(form, new object[] { "" });
+                    var instances = (System.Windows.Forms.ComboBox)form.Controls.Find("cmbSaveInstance", true).Single();
+                    instances.SelectedItem = instances.Items.Cast<SaveInstance>().Single(i => i.Id == environment.Id);
+                    Check(isolatedConfig.SaveInstanceId == environment.Id && (string)selected.Invoke(form, null) == "custom-profile" && !combo.Enabled, "Selecting a save environment selects and locks its bound game version");
+                    instances.SelectedIndex = 0;
+                    Check(isolatedConfig.SaveInstanceId == "" && combo.Enabled, "Choosing default directory explicitly exits save isolation");
+                    string missing = Guid.NewGuid().ToString("N");
+                    refreshInstances.Invoke(form, new object[] { missing });
+                    Check(((SaveInstance)instances.SelectedItem).Id == missing && isolatedConfig.SaveInstanceId == missing, "Missing save environment stays selected instead of silently using shared saves");
+                }
+                finally { configField.SetValue(form, actualConfig); form.ScanLocalVersions(); }
+            }
+            var modCfg = ModManagementTests.Fixture(Path.Combine(root, "ui-mods"));
+            var modService = new ModManagement(modCfg, "custom-profile");
+            ModManagementTests.Jar(Path.Combine(modService.ModsDirectory, "third-party.jar"), "third_party");
+            using (var dialog = new ModManagerForm(modService, () => false))
+            {
+                dialog.StartPosition = System.Windows.Forms.FormStartPosition.Manual;
+                dialog.Location = new System.Drawing.Point(-20000, -20000); dialog.ShowInTaskbar = false; dialog.Show();
+                var modList = (System.Windows.Forms.ListView)dialog.Controls.Find("modList", true).Single();
+                var diag = (System.Windows.Forms.TextBox)dialog.Controls.Find("modDiagnostics", true).Single();
+                var watch = Stopwatch.StartNew();
+                while (diag.Text.Length == 0 && watch.ElapsedMilliseconds < 5000) { System.Windows.Forms.Application.DoEvents(); Thread.Sleep(5); }
+                Check(modList.Items.Count == 1 && modList.Items[0].SubItems[1].Text == "third_party", "Mod manager asynchronously displays third-party metadata");
+                Check(diag.Text.Contains("启用 1"), "Mod manager renders compatibility diagnostic summary");
+                using (var image = new System.Drawing.Bitmap(dialog.Width, dialog.Height))
+                {
+                    dialog.DrawToBitmap(image, new System.Drawing.Rectangle(0, 0, dialog.Width, dialog.Height));
+                    image.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ui-mod-manager.png"));
+                }
+            }
+            var saveCfg = ModManagementTests.Fixture(Path.Combine(root, "ui-save-manager"));
+            var saveInstance = SaveIsolation.Create(saveCfg, "custom-profile", "独立存档", null, false, CancellationToken.None);
+            using (var dialog = new SaveInstanceForm(saveCfg, "custom-profile", () => false))
+            {
+                dialog.StartPosition = System.Windows.Forms.FormStartPosition.Manual; dialog.Location = new System.Drawing.Point(-20000, -20000); dialog.ShowInTaskbar = false; dialog.Show();
+                var instances = (System.Windows.Forms.ListView)dialog.Controls.Find("instanceList", true).Single();
+                var watch = Stopwatch.StartNew();
+                while (instances.Items.Count == 0 && watch.ElapsedMilliseconds < 5000) { System.Windows.Forms.Application.DoEvents(); Thread.Sleep(5); }
+                Check(instances.Items.Count == 1 && instances.Items[0].Text == "独立存档", "Save manager asynchronously lists isolated environments");
+                using (var image = new System.Drawing.Bitmap(dialog.Width, dialog.Height))
+                {
+                    dialog.DrawToBitmap(image, new System.Drawing.Rectangle(0, 0, dialog.Width, dialog.Height));
+                    image.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ui-save-manager.png"));
+                }
+                instances.Items[0].Selected = true;
+                ((System.Windows.Forms.Button)dialog.Controls.Find("使用所选环境", true).Single()).PerformClick();
+                Check(dialog.SelectedInstance != null && dialog.SelectedInstance.Id == saveInstance.Id && dialog.DialogResult == System.Windows.Forms.DialogResult.OK, "Use-selected environment action returns selection without busy-close deadlock");
+            }
+            using (var dialog = new SaveInstanceForm(saveCfg, "custom-profile", () => false))
+            {
+                dialog.StartPosition = System.Windows.Forms.FormStartPosition.Manual; dialog.Location = new System.Drawing.Point(-20000, -20000); dialog.ShowInTaskbar = false; dialog.Show();
+                var status = (System.Windows.Forms.Label)dialog.Controls.Find("instanceStatus", true).Single();
+                var watch = Stopwatch.StartNew();
+                while (status.Text.Length == 0 && watch.ElapsedMilliseconds < 5000) { System.Windows.Forms.Application.DoEvents(); Thread.Sleep(5); }
+                ((System.Windows.Forms.TextBox)dialog.Controls.Find("instanceName", true).Single()).Text = "通过界面创建";
+                ((System.Windows.Forms.Button)dialog.Controls.Find("新建空环境", true).Single()).PerformClick();
+                watch.Restart();
+                while (dialog.SelectedInstance == null && watch.ElapsedMilliseconds < 5000) { System.Windows.Forms.Application.DoEvents(); Thread.Sleep(5); }
+                Check(dialog.SelectedInstance != null && Directory.Exists(SaveIsolation.GameDirectory(saveCfg.GameDir, dialog.SelectedInstance.Id)) && dialog.DialogResult == System.Windows.Forms.DialogResult.OK, "Create environment UI completes copy and returns a usable environment");
             }
             Console.WriteLine("UI RESULT: " + passed + " checks passed");
         }
@@ -110,8 +183,11 @@ namespace SuyunCraft
         {
             BackendRegressionTests.Run(Path.Combine(root, "backend"), Check);
             AiIntegrationTests.Run(Path.Combine(root, "ai-integration"), Check);
+            ModManagementTests.Run(Path.Combine(root, "mod-management"), Check);
+            SaveIsolationTests.Run(Path.Combine(root, "save-isolation"), Check);
             ModResolutionRegressionTests.Run(Path.Combine(root, "modres"), Check);
             VerifyStoreRegressionTests.Run(Path.Combine(root, "verifystore"), Check);
+            SaveMgmtRegressionTests.Run(Path.Combine(root, "savemgmt"), Check);
             string configPath = Path.Combine(root, "config.json");
             var config = new Config { AutoMemory = false, VersionIsolation = true, CaptureGameLog = false,
                 GameDir = root, MemoryGb = 6, WindowWidth = 1234, WindowHeight = 777 };

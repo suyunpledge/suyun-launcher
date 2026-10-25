@@ -11,7 +11,7 @@ namespace SuyunCraft
     static class Program
     {
         public const string AppName = "SuyunCraft";
-        public const string AppVersion = "1.7";
+        public const string AppVersion = "1.9";
 
         [STAThread]
         static void Main(string[] args)
@@ -28,6 +28,7 @@ namespace SuyunCraft
             }
             Application.EnableVisualStyles();
             Application.SetCompatibleTextRenderingDefault(false);
+            DarkMode.EnableForProcess();
             Application.Run(new MainForm());
         }
 

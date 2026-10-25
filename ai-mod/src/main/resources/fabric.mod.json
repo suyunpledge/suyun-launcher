@@ -1,7 +1,7 @@
 {
   "schemaVersion": 1,
   "id": "suyuncraft_ai",
-  "version": "0.3.0",
+  "version": "0.5.0",
   "name": "SuyunCraft AI",
   "description": "On-demand AI plans with local bounded action execution",
   "environment": "client",

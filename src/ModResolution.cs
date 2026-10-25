@@ -337,37 +337,79 @@ namespace SuyunCraft
     // ---- Fabric Loader 依赖覆盖配置（config/fabric_loader_dependencies.json） ----
     static class LoaderOverrides
     {
-        public static Dictionary<string, string> Load(string gameDirectory, List<LaunchIssue> issues)
+        public static Dictionary<string, object> Load(string gameDirectory, List<LaunchIssue> issues)
         {
             try
             {
-                string path = Path.Combine(gameDirectory ?? "", "config", "fabric_loader_dependencies.json");
+                string path = FileSafety.Under(gameDirectory, "config/fabric_loader_dependencies.json");
                 if (!File.Exists(path)) return null;
                 var fi = new FileInfo(path);
                 if (fi.Length > 1024 * 1024) { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", "依赖覆盖文件超过 1 MB，已忽略。")); return null; }
-                var root = Json.D(Json.Parse(File.ReadAllText(path, Encoding.UTF8)));
-                if (root == null || Json.S(root, "version", "") != "1")
+                string text;
+                using (var input = File.OpenRead(path))
+                using (var output = new MemoryStream())
+                {
+                    byte[] buffer = new byte[8192]; int n;
+                    while ((n = input.Read(buffer, 0, buffer.Length)) > 0)
+                    {
+                        if (output.Length + n > 1024 * 1024) throw new InvalidDataException("依赖覆盖文件超过 1 MB");
+                        output.Write(buffer, 0, n);
+                    }
+                    text = new UTF8Encoding(false, true).GetString(output.ToArray()).TrimStart('\uFEFF');
+                }
+                var root = Json.D(Json.Parse(text));
+                if (root == null || Json.L(root, "version", 0) != 1)
                 { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", "依赖覆盖文件格式未识别，已忽略。")); return null; }
                 var overrides = Json.D(Json.O(root, "overrides"));
                 if (overrides == null) return null;
-                Dictionary<string, string> map = new Dictionary<string, string>(StringComparer.Ordinal);
-                foreach (KeyValuePair<string, object> kv in overrides)
-                { string v = kv.Value as string; if (v != null) map[kv.Key] = v; }
-                return map;
+                return overrides;
             }
             catch (Exception ex)
             {
-                if (ex is IOException || ex is InvalidDataException || ex is UnauthorizedAccessException)
+                if (ex is IOException || ex is InvalidDataException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is InvalidOperationException)
                 { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", "依赖覆盖文件读取失败，已忽略：" + ex.Message)); return null; }
                 throw;
             }
+        }
+
+        public static bool Apply(ModMetadata mod, Dictionary<string, object> overrides, List<LaunchIssue> issues)
+        {
+            object value;
+            if (overrides == null || !overrides.TryGetValue(mod.Id, out value)) return false;
+            var entries = Json.D(value);
+            if (entries == null) { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", mod.Id + " 的依赖覆盖必须按模组和依赖类型分组，已忽略。")); return false; }
+            bool applied = false;
+            foreach (string kind in new[] { "depends", "breaks", "conflicts" })
+            {
+                var group = kind == "depends" ? mod.Depends : kind == "breaks" ? mod.Breaks : mod.Conflicts;
+                bool replace = entries.ContainsKey(kind);
+                var result = replace ? new List<ModDependency>() : new List<ModDependency>(group);
+                bool valid = true, changed = false;
+                // Fabric Loader 0.16.10: replacement suppresses +/-; otherwise remove then append.
+                foreach (string operation in replace ? new[] { kind } : new[] { "-" + kind, "+" + kind })
+                {
+                    object raw;
+                    if (!entries.TryGetValue(operation, out raw)) continue;
+                    var dependencies = Json.D(raw);
+                    if (dependencies == null) { valid = false; break; }
+                    changed = true;
+                    foreach (var dependency in dependencies)
+                    {
+                        if (operation.StartsWith("-")) result.RemoveAll(d => d.Id == dependency.Key);
+                        else result.Add(ModDependencyParser.Parse(dependency.Key, dependency.Value));
+                    }
+                }
+                if (!valid) { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", mod.Id + " 的 " + kind + " 覆盖不是对象，已忽略。")); continue; }
+                if (changed) { group.Clear(); group.AddRange(result); applied = true; }
+            }
+            return applied;
         }
     }
 
     // ---- 解析引擎 ----
     static class ModDependencyResolver
     {
-        public static List<LaunchIssue> Resolve(List<ModMetadata> mods, string minecraftVersion, int javaMajor, Dictionary<string, string> overrides)
+        public static List<LaunchIssue> Resolve(List<ModMetadata> mods, string minecraftVersion, int javaMajor, Dictionary<string, object> overrides)
         {
             List<LaunchIssue> issues = new List<LaunchIssue>();
             // 提供者表：id 与 provides 都指向提供该 ID 的模组
@@ -380,9 +422,10 @@ namespace SuyunCraft
             bool overrideUsed = false;
             foreach (ModMetadata mod in mods)
             {
-                ResolveGroup(mod, mod.Depends, "depends", providers, minecraftVersion, javaMajor, overrides, issues, ref overrideUsed, errorOnUnsatisfied: true);
-                ResolveGroup(mod, mod.Breaks, "breaks", providers, minecraftVersion, javaMajor, overrides, issues, ref overrideUsed, errorOnUnsatisfied: false);
-                ResolveGroup(mod, mod.Conflicts, "conflicts", providers, minecraftVersion, javaMajor, overrides, issues, ref overrideUsed, errorOnUnsatisfied: false);
+                overrideUsed |= LoaderOverrides.Apply(mod, overrides, issues);
+                ResolveGroup(mod, mod.Depends, "depends", providers, minecraftVersion, javaMajor, issues, errorOnUnsatisfied: true);
+                ResolveGroup(mod, mod.Breaks, "breaks", providers, minecraftVersion, javaMajor, issues, errorOnUnsatisfied: false);
+                ResolveGroup(mod, mod.Conflicts, "conflicts", providers, minecraftVersion, javaMajor, issues, errorOnUnsatisfied: false);
             }
             if (overrideUsed) issues.Add(new LaunchIssue("MOD_OVERRIDE_APPLIED", "已按 fabric_loader_dependencies.json 覆盖部分依赖范围。"));
             return issues;
@@ -398,30 +441,12 @@ namespace SuyunCraft
 
         static void ResolveGroup(ModMetadata mod, List<ModDependency> group, string kind,
             Dictionary<string, List<ModMetadata>> providers, string minecraftVersion, int javaMajor,
-            Dictionary<string, string> overrides, List<LaunchIssue> issues, ref bool overrideUsed, bool errorOnUnsatisfied)
+            List<LaunchIssue> issues, bool errorOnUnsatisfied)
         {
             foreach (ModDependency dep in group)
             {
                 if (!dep.AppliesToClient()) continue;                     // 服务端限定依赖在客户端跳过
                 string rangeSource = "声明";
-                string raw = null;
-                if (overrides != null && overrides.TryGetValue(dep.Id, out raw))
-                {
-                    dep.ParsedAlternatives.Clear();
-                    dep.Parsed = true;
-                    List<string> alts = new List<string>();
-                    string s = raw as string;
-                    alts.Add(s);
-                    foreach (string a in alts)
-                    {
-                        dep.Alternatives.Add(a);
-                        List<FabricTerm> terms = FabricPredicate.ParseAlternative(a);
-                        dep.ParsedAlternatives.Add(terms);
-                        if (terms.Any(t => !t.Valid)) dep.Parsed = false;
-                    }
-                    rangeSource = "覆盖";
-                    overrideUsed = true;
-                }
                 if (!dep.Parsed)
                 { issues.Add(new LaunchIssue("MOD_DEPENDENCY_UNKNOWN", mod.FileName + " 的 " + kind + " " + dep.Id + " 使用了无法解析的版本范围（" + JoinRaw(dep) + "），兼容性未知。")); continue; }
 
@@ -445,11 +470,12 @@ namespace SuyunCraft
                         if (javaMajor <= 0) builtinUnknown = true;
                         else builtinVersion = FabricVersion.Parse(javaMajor <= 8 ? "1." + javaMajor : javaMajor.ToString());
                     }
-                    else if (dep.Id == "fabricloader" || dep.Id == "fabric") { builtin = true; builtinUnknown = true; }
+                    else if (dep.Id == "fabricloader") { builtin = true; builtinUnknown = true; }
                 }
 
                 if (found == null && !builtin)
                 {
+                    if (kind != "depends" || dep.ExplicitOptional) continue;
                     issues.Add(new LaunchIssue("MOD_DEPENDENCY_UNRESOLVED", mod.FileName + " 的依赖 " + dep.Id + " 未在模组包中找到；若由加载器或外部组件提供，请以游戏实际启动为准。"));
                     continue;
                 }

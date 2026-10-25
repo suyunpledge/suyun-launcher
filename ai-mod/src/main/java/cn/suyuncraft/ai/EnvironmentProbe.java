@@ -19,6 +19,16 @@ final class EnvironmentProbe {
             s.isOf(Blocks.MAGMA_BLOCK) || s.isOf(Blocks.CACTUS) || s.isOf(Blocks.SWEET_BERRY_BUSH) ||
             s.isOf(Blocks.POWDER_SNOW) || s.isOf(Blocks.CAMPFIRE) || s.isOf(Blocks.SOUL_CAMPFIRE);
     }
+    /** Brief airtime is tolerable only when ground exists within four blocks below and the column is not hazardous. */
+    static boolean descentSafe(MinecraftClient mc) {
+        BlockPos base=mc.player.getBlockPos();
+        for (int dy=0; dy<=4; dy++) {
+            BlockPos below=base.down(dy);
+            if (!loaded(mc,below) || hazardous(mc,below)) return false;
+            if (!mc.world.getBlockState(below).getCollisionShape(mc.world,below).isEmpty()) return true;
+        }
+        return false;
+    }
     static boolean safeStep(MinecraftClient mc, Vec3d step) {
         var box=mc.player.getBoundingBox().offset(step).expand(0.05,0,0.05);
         for (int x=MathHelper.floor(box.minX); x<=MathHelper.floor(box.maxX); x++)
@@ -37,6 +47,15 @@ final class EnvironmentProbe {
             case "right" -> new Vec3d(-forward.z,0,forward.x).multiply(0.65); default -> forward.multiply(0.65);
         };
     }
+    /** Nearest alive hostile within range; combat actions lock onto this target and track it. */
+    static HostileEntity nearestHostile(MinecraftClient mc, double range) {
+        HostileEntity best=null; double bestDist=Double.MAX_VALUE;
+        for (var e : mc.world.getEntitiesByClass(HostileEntity.class, mc.player.getBoundingBox().expand(range), h -> h.isAlive())) {
+            double d=e.squaredDistanceTo(mc.player);
+            if (d<bestDist) { bestDist=d; best=e; }
+        }
+        return best;
+    }
     static JsonObject observe(MinecraftClient mc) {
         JsonObject env=new JsonObject();
         int unknown=0,hazards=0,solid=0;
@@ -51,6 +70,9 @@ final class EnvironmentProbe {
         env.addProperty("hazardCells",hazards); env.addProperty("solidCells",solid);
         env.addProperty("light",mc.world.getLightLevel(center)); env.addProperty("raining",mc.world.isRaining());
         env.addProperty("hostiles",Math.min(20,mc.world.getEntitiesByClass(HostileEntity.class,mc.player.getBoundingBox().expand(8),e->e.isAlive()).size()));
+        var nearest=nearestHostile(mc,8);
+        env.addProperty("nearestHostileType", nearest==null?"":Registries.ENTITY_TYPE.getId(nearest.getType()).toString());
+        env.addProperty("nearestHostileDistance", nearest==null?-1:(int)Math.ceil(Math.sqrt(nearest.squaredDistanceTo(mc.player))));
         JsonObject ways=new JsonObject();
         for (String d:new String[]{"forward","back","left","right"}) ways.addProperty(d,safeStep(mc,step(mc,d)));
         env.add("safeSteps",ways);

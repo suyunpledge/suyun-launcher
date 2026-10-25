@@ -1,0 +1,6 @@
+PASS: AI install and bridge controls are attached to settings
+PASS: Background backend download adapter returns to UI without deadlock
+PASS: Fabric UI selection strips full emoji prefix
+PASS: Window size input visible in control tree numW
+PASS: Window size input visible in control tree numH
+UI RESULT: 5 checks passed
