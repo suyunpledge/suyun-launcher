@@ -1,10 +1,10 @@
-﻿using System;
+using System;
 using System.Drawing;
 using System.Windows.Forms;
 
 namespace SuyunCraft
 {
-    /// <summary>单行文本输入对话框（重命名等轻量场景）。</summary>
+    /// <summary>Single-line text input dialog (rename and similar)）。</summary>
     sealed class TextInputForm : Form
     {
         readonly UiTextField input = new UiTextField();
@@ -29,12 +29,12 @@ namespace SuyunCraft
             input.Inner.SelectAll();
             Controls.Add(input);
 
-            var ok = new UiButton { Text = "确定", Dock = DockStyle.None };
+            var ok = new UiButton { Text = "OK", Dock = DockStyle.None };
             ok.SetBounds(214, 96, 88, 34);
             ok.Click += delegate { DialogResult = DialogResult.OK; };
             Controls.Add(ok);
 
-            var cancel = new UiButton { Text = "取消" };
+            var cancel = new UiButton { Text = "Cancel" };
             cancel.SetBounds(312, 96, 88, 34);
             cancel.Click += delegate { DialogResult = DialogResult.Cancel; };
             Controls.Add(cancel);

@@ -57,7 +57,7 @@ namespace SuyunCraft
             {
                 Uri uri;
                 if (!Uri.TryCreate(url, UriKind.Absolute, out uri) || uri.Scheme != Uri.UriSchemeHttps || !string.IsNullOrEmpty(uri.UserInfo))
-                    throw new InvalidDataException("下载地址必须使用 HTTPS");
+                    throw new InvalidDataException("DownloadURLs must use HTTPS");
                 token.ThrowIfCancellationRequested();
                 var req = (HttpWebRequest)WebRequest.Create(uri);
                 req.UserAgent = UserAgent;
@@ -73,50 +73,69 @@ namespace SuyunCraft
                 {
                     string location = response.Headers["Location"];
                     response.Dispose(); abort.Dispose();
-                    if (string.IsNullOrEmpty(location)) throw new InvalidDataException("重定向缺少地址");
+                    if (string.IsNullOrEmpty(location)) throw new InvalidDataException("Redirect missing location");
                     url = new Uri(uri, location).AbsoluteUri;
                     continue;
                 }
                 if (code != 200) { response.Dispose(); abort.Dispose(); throw new IOException("HTTP " + code); }
                 return new Response(response, abort);
             }
-            throw new IOException("重定向次数过多");
+            throw new IOException("Too many redirects");
         }
 
-        public static string DownloadString(string url, string mirror)
+        public static string DownloadString(string url, string mirror, CancellationToken cancellation = default(CancellationToken))
         {
             string[] tries = new string[] { Mirrors.Map(url, mirror), Mirrors.Map(url, Mirrors.Other(mirror)), url };
             List<string> cand = new List<string>();
             foreach (string u in tries) if (!cand.Contains(u)) cand.Add(u);
-            return RaceFetch(cand);
+            return RaceFetch(cand, cancellation, FetchString);
         }
 
-        // 多通道并发竞速：每个候选 URL 同时走「系统代理」与「直连」，谁先成功用谁。
-        // 慢网络下串行重试需要逐源等满超时，竞速把最坏等待从"源数×超时"压缩到"最快通道"的耗时。
-        static string RaceFetch(List<string> urls)
+        // Race multiple endpoints: each candidate URL is fetched via system proxy and direct concurrently; first success wins.
+        // Serial retries wait out every timeout on slow networks; racing cuts the worst case from"source count×timeout"down to"the fastest path"elapsed。
+        internal static string RaceFetch(List<string> urls, CancellationToken cancellation, Func<string, bool, CancellationToken, string> fetch)
         {
-            Exception last = null;
+            cancellation.ThrowIfCancellationRequested();
+            var stop = CancellationTokenSource.CreateLinkedTokenSource(cancellation);
+            var token = stop.Token;
             List<Task<string>> tasks = new List<Task<string>>();
-            foreach (string u in urls)
+            try
             {
-                string cu = u;
-                tasks.Add(Task.Factory.StartNew(delegate { try { return FetchString(cu, true); } catch (Exception ex) { last = ex; return null; } }));
-                tasks.Add(Task.Factory.StartNew(delegate { try { return FetchString(cu, false); } catch (Exception ex) { last = ex; return null; } }));
+                foreach (string u in urls)
+                {
+                    string cu = u;
+                    tasks.Add(Task.Run(() => fetch(cu, true, token), token));
+                    tasks.Add(Task.Run(() => fetch(cu, false, token), token));
+                }
+                var pending = new List<Task<string>>(tasks);
+                Exception last = null;
+                while (pending.Count > 0)
+                {
+                    int idx = Task.WaitAny(pending.ToArray(), -1, cancellation);
+                    Task<string> done = pending[idx];
+                    cancellation.ThrowIfCancellationRequested();
+                    if (done.Status == TaskStatus.RanToCompletion && done.Result != null) return done.Result;
+                    if (done.IsFaulted) last = done.Exception.GetBaseException();
+                    pending.RemoveAt(idx);
+                }
+                throw new IOException("Downloadfailed（tried " + urls.Count + " endpoints x proxy/direct）" + (last != null ? "：" + last.Message : ""), last);
             }
-            List<Task<string>> pending = new List<Task<string>>(tasks);
-            while (pending.Count > 0)
+            finally
             {
-                int idx = Task.WaitAny(pending.ToArray());
-                Task<string> done = pending[idx];
-                if (done.Result != null) return done.Result;
-                pending.RemoveAt(idx);
+                // A winner or user cancellation aborts losing HTTP requests immediately.
+                stop.Cancel();
+                Task.WhenAll(tasks).ContinueWith(done => {
+                    if (done.IsFaulted) { var observed = done.Exception; }
+                    stop.Dispose();
+                }, CancellationToken.None, TaskContinuationOptions.ExecuteSynchronously, TaskScheduler.Default);
             }
-            throw new Exception("下载失败（已并发尝试 " + urls.Count + " 个源 × 代理/直连）: " + urls[0] + (last != null ? " —— " + last.Message : ""));
         }
 
-        static string FetchString(string url, bool useSystemProxy)
+        static string FetchString(string url, bool useSystemProxy, CancellationToken cancellation)
         {
-            using (var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(60)))
+            using (var deadline = CancellationTokenSource.CreateLinkedTokenSource(cancellation))
+            {
+            deadline.CancelAfter(TimeSpan.FromSeconds(60));
             using (var resp = Open(url, deadline.Token, useSystemProxy))
             using (var sr = new StreamReader(resp.GetResponseStream(), Encoding.UTF8))
             {
@@ -125,10 +144,12 @@ namespace SuyunCraft
                 int read;
                 while ((read = sr.Read(buffer, 0, buffer.Length)) > 0)
                 {
-                    if (text.Length + read > 32 * 1024 * 1024) throw new InvalidDataException("JSON 文件过大");
+                    deadline.Token.ThrowIfCancellationRequested();
+                    if (text.Length + read > 32 * 1024 * 1024) throw new InvalidDataException("JSON filetoo large");
                     text.Append(buffer, 0, read);
                 }
                 return text.ToString();
+            }
             }
         }
         public static bool LastFromCache = false;
@@ -148,7 +169,7 @@ namespace SuyunCraft
                 {
                     try { if (File.Exists(ManifestCachePath)) { json = File.ReadAllText(ManifestCachePath, Encoding.UTF8); LastFromCache = true; } } catch { }
                 }
-                if (json == null) throw new Exception("版本清单获取失败，且没有本地缓存可用");
+                if (json == null) throw new Exception("versionmanifest fetch failed and no local cache available");
                 if (!LastFromCache)
                 {
                     try { Directory.CreateDirectory(Config.BaseDir); File.WriteAllText(ManifestCachePath, json, Encoding.UTF8); } catch { }

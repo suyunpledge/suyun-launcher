@@ -17,7 +17,7 @@ namespace SuyunCraft
 {
     partial class MainForm
     {
-        // ---------------- 下载页 ----------------
+        // ---------------- Downloadpage ----------------
         UiCard cardDlToolbar, cardDlList, cardDlAction;
         Label lblDlCount;
         UiListHeader listHeader;
@@ -25,50 +25,50 @@ namespace SuyunCraft
         void BuildDownload()
         {
             dlPage = new UiPage();
-            dlPage.HeaderTitle = "下载游戏版本";
-            dlPage.HeaderSubtitle = "从官方清单获取版本，可同时安装 Fabric 模组加载器";
+            dlPage.HeaderTitle = "Downloadgameversion";
+            dlPage.HeaderSubtitle = "Fetch versions from the official manifest; optionally install the Fabric loader";
 
-            // ---------- 工具条 ----------
+            // ---------- toolbar ----------
             cardDlToolbar = new UiCard();
             dlPage.Controls.Add(cardDlToolbar);
 
             cmbFilter = new UiComboBox();
             cmbFilter.SetBounds(20, 14, 120, 34);
-            cmbFilter.Items.AddRange(new object[] { "正式版", "正式版+快照", "全部" });
+            cmbFilter.Items.AddRange(new object[] { "Release", "Release+snapshot", "All" });
             cmbFilter.SelectedIndex = 0;
             cmbFilter.SelectedIndexChanged += delegate { ApplyFilter(); };
             cardDlToolbar.Controls.Add(cmbFilter);
 
             txtSearch = new UiTextField();
             txtSearch.SetBounds(152, 14, 220, 34);
-            txtSearch.SetPlaceholder("输入版本号过滤");
+            txtSearch.SetPlaceholder("Filter by version id");
             txtSearch.TextChanged += delegate { ApplyFilter(); };
             cardDlToolbar.Controls.Add(txtSearch);
 
             UiButton btnLoad = new UiButton();
-            btnLoad.Text = "获取版本列表";
+            btnLoad.Text = "Fetch version list";
             btnLoad.Icon = UiIcon.Refresh;
             btnLoad.SetBounds(384, 13, 140, 36);
             btnLoad.Click += delegate { LoadManifest(); };
             cardDlToolbar.Controls.Add(btnLoad);
 
-            // ---------- 列表 ----------
+            // ---------- list ----------
             cardDlList = new UiCard();
             dlPage.Controls.Add(cardDlList);
 
-            Label lList = MkLabel("版本清单", 20, 12, 220);
+            Label lList = MkLabel("versionmanifest", 20, 12, 220);
             lList.Font = Theme.UiBold;
             cardDlList.Controls.Add(lList);
-            lblDlCount = MkLabel("尚未加载", 20, 32, 220);
+            lblDlCount = MkLabel("Not loaded yet", 20, 32, 220);
             lblDlCount.ForeColor = Theme.TextDisabled;
             lblDlCount.Font = Theme.Caption;
             cardDlList.Controls.Add(lblDlCount);
 
             chkFabric = new UiCheckBox();
-            chkFabric.Text = "安装 Fabric";
+            chkFabric.Text = "Install Fabric";
             chkFabric.SetBounds(0, 16, 110, 24);
             ToolTip ttFabric = new ToolTip();
-            ttFabric.SetToolTip(chkFabric, "勾选后为所选版本安装 Fabric Loader，用于加载 mods 目录中的模组");
+            ttFabric.SetToolTip(chkFabric, "When checked, install Fabric Loader for the selected version to load mods from the mods directorymod");
             chkFabric.CheckedChanged += delegate
             {
                 cmbFabric.Visible = chkFabric.Checked;
@@ -84,24 +84,24 @@ namespace SuyunCraft
 
             lvVersions = new UiListView();
             lvVersions.SetBounds(16, 88, 700, 240);
-            lvVersions.Columns.Add("版本", Ui.Px(240));
-            lvVersions.Columns.Add("类型", Ui.Px(100));
-            lvVersions.Columns.Add("发布时间", Ui.Px(170));
-            lvVersions.Columns.Add("状态", Ui.Px(120));
+            lvVersions.Columns.Add("version", Ui.Px(240));
+            lvVersions.Columns.Add("type", Ui.Px(100));
+            lvVersions.Columns.Add("Released", Ui.Px(170));
+            lvVersions.Columns.Add("status", Ui.Px(120));
             lvVersions.DoubleClick += delegate { InstallSelected(); };
             cardDlList.Controls.Add(lvVersions);
 
             listHeader = new UiListHeader();
-            listHeader.Captions.AddRange(new string[] { "版本", "类型", "发布时间", "状态" });
+            listHeader.Captions.AddRange(new string[] { "version", "type", "Released", "status" });
             listHeader.SetBounds(16, 58, 700, 30);
             cardDlList.Controls.Add(listHeader);
 
-            // ---------- 操作区 ----------
+            // ---------- action row ----------
             cardDlAction = new UiCard();
             dlPage.Controls.Add(cardDlAction);
 
             btnInstall = new UiButton();
-            btnInstall.Text = "下载并安装所选版本";
+            btnInstall.Text = "Downloadand install the selected version";
             btnInstall.Icon = UiIcon.Download;
             btnInstall.Kind = UiButtonKind.Success;
             btnInstall.SetBounds(20, 16, 230, 42);
@@ -118,10 +118,10 @@ namespace SuyunCraft
             cardDlAction.Controls.Add(lblDl);
 
             btnCancelDl = new UiButton();
-            btnCancelDl.Text = "取消";
+            btnCancelDl.Text = "Cancel";
             btnCancelDl.SetBounds(700, 18, 80, 32);
             btnCancelDl.Enabled = false;
-            btnCancelDl.Click += delegate { if (mgr != null) mgr.Cancelled = true; };
+            btnCancelDl.Click += delegate { CancelOperation(); };
             cardDlAction.Controls.Add(btnCancelDl);
 
             dlTimer = new System.Windows.Forms.Timer();
@@ -152,7 +152,7 @@ namespace SuyunCraft
             listHeader.SetBounds(lvX, Ui.Px(58), lvW, hdrH);
             lvVersions.SetBounds(lvX, Ui.Px(58) + hdrH, lvW, Math.Max(Ui.Px(80), listH - Ui.Px(74) - hdrH));
 
-            // 列宽铺满列表，避免最后一列右侧留出系统色空白
+            // Stretch columns to full width to avoid a system-color gap
             int cVer = Ui.Px(240), cType = Ui.Px(110), cTime = Ui.Px(170);
             int cState = Math.Max(Ui.Px(90), lvW - cVer - cType - cTime);
             if (lvVersions.Columns.Count >= 4)
@@ -195,17 +195,17 @@ namespace SuyunCraft
                 bar.Value = (int)Math.Max(0, Math.Min(100, done * 100 / mgr.TotalBytes));
             string cur = mgr.CurrentFile;
             if (cur.Length > 50) cur = cur.Substring(cur.Length - 50);
-            lblDl.Text = string.Format("{0} / {1} 文件  ·  {2:0.#} / {3:0.#} MB  ·  {4:0.#} MB/s  ·  {5}",
+            lblDl.Text = string.Format("{0} / {1} file  ·  {2:0.#} / {3:0.#} MB  ·  {4:0.#} MB/s  ·  {5}",
                 mgr.DoneFiles, mgr.TotalFiles, done / 1024.0 / 1024.0, mgr.TotalBytes / 1024.0 / 1024.0, speed / 1024.0 / 1024.0, cur);
         }
 
         async void LoadManifest()
         {
-            statusBar.Text = "正在获取版本清单…（慢网络约需 10-30 秒）";
+            statusBar.Text = "Fetching version manifest… (may take 10-30s on slow networks)";
             var tick = new System.Windows.Forms.Timer();
             int secs = 0;
             tick.Interval = 1000;
-            tick.Tick += delegate { secs++; statusBar.Text = "正在获取版本清单… " + secs + " 秒（多通道并发竞速中，请稍候）"; };
+            tick.Tick += delegate { secs++; statusBar.Text = "Fetching version manifest… " + secs + " s（racing multiple endpoints，please wait）"; };
             tick.Start();
             try
             {
@@ -217,17 +217,17 @@ namespace SuyunCraft
                 {
                     string when = "?";
                     try { when = System.IO.File.GetLastWriteTime(Net.ManifestCachePath).ToString("MM-dd HH:mm"); } catch { }
-                    statusBar.Text = "网络不可用，已用本地缓存（" + list.Count + " 个版本，更新于 " + when + "）";
+                    statusBar.Text = "Network unavailable，using local cache（" + list.Count + "  version，updated " + when + "）";
                 }
-                else statusBar.Text = "版本清单已更新，共 " + list.Count + " 个版本";
+                else statusBar.Text = "versionmanifest updated, total  " + list.Count + "  version";
             }
             catch (Exception ex)
             {
                 if (!IsDisposed)
                 {
                     tick.Stop(); tick.Dispose();
-                    statusBar.Text = "获取版本清单失败";
-                    MessageBox.Show(ex.Message, "获取失败");
+                    statusBar.Text = "Fetch version manifestfailed";
+                    MessageBox.Show(ex.Message, "fetchfailed");
                 }
             }
         }
@@ -236,28 +236,28 @@ namespace SuyunCraft
         {
             lvVersions.Items.Clear();
             string q = txtSearch.Text.Trim().ToLower();
-            string f = cmbFilter.SelectedItem != null ? cmbFilter.SelectedItem.ToString() : "正式版";
+            string f = cmbFilter.SelectedItem != null ? cmbFilter.SelectedItem.ToString() : "Release";
             foreach (ManifestVer v in manifest)
             {
-                if (f == "正式版" && v.Type != "release") continue;
-                if (f == "正式版+快照" && v.Type != "release" && v.Type != "snapshot") continue;
+                if (f == "Release" && v.Type != "release") continue;
+                if (f == "Release+snapshot" && v.Type != "release" && v.Type != "snapshot") continue;
                 if (q.Length > 0 && !v.Id.ToLower().Contains(q)) continue;
                 ListViewItem it = new ListViewItem(v.Id);
-                string typeStr = v.Type == "release" ? "正式版" : v.Type == "snapshot" ? "快照" : v.Type;
+                string typeStr = v.Type == "release" ? "Release" : v.Type == "snapshot" ? "snapshot" : v.Type;
                 it.SubItems.Add(typeStr);
                 string t = v.Time;
                 if (t.Length >= 10) t = t.Substring(0, 10);
                 it.SubItems.Add(t);
                 bool installed = localInstalled.Contains(v.Id);
-                it.SubItems.Add(installed ? "已安装" : "");
+                it.SubItems.Add(installed ? "Installed" : "");
                 if (installed) it.ForeColor = Theme.Accent;
                 it.Tag = v;
                 lvVersions.Items.Add(it);
             }
             if (lblDlCount != null)
                 lblDlCount.Text = manifest.Count == 0
-                    ? "尚未加载"
-                    : "显示 " + lvVersions.Items.Count + " / " + manifest.Count + " 个版本";
+                    ? "Not loaded yet"
+                    : "show " + lvVersions.Items.Count + " / " + manifest.Count + "  version";
         }
 
         async void LoadFabricLoaders()
@@ -275,7 +275,7 @@ namespace SuyunCraft
             catch (Exception ex) {
                 if (IsDisposed) return;
                 chkFabric.Checked = false; cmbFabric.Visible = false;
-                MessageBox.Show("Fabric 加载器列表获取失败：" + ex.Message);
+                MessageBox.Show("Fabric Loader list fetchfailed：" + ex.Message);
             }
         }
 
@@ -289,61 +289,64 @@ namespace SuyunCraft
         {
             if (operationBusy) return;
             ManifestVer selected = SelectedManifest();
-            if (selected == null) { MessageBox.Show("请先选择一个版本。"); return; }
-            if (selected.Type == "old_beta" || selected.Type == "old_alpha") { MessageBox.Show("暂不支持远古 Alpha/Beta 版本。"); return; }
-            if (chkFabric.Checked && cmbFabric.SelectedItem == null) { MessageBox.Show("请等待 Fabric 加载器列表加载完成。"); return; }
+            if (selected == null) { MessageBox.Show("Select a version first."); return; }
+            if (selected.Type == "old_beta" || selected.Type == "old_alpha") { MessageBox.Show("Legacy Alpha/Beta versions are not supported."); return; }
+            if (chkFabric.Checked && cmbFabric.SelectedItem == null) { MessageBox.Show("Wait for the Fabric loader list to finish loading."); return; }
             string loader = chkFabric.Checked ? cmbFabric.SelectedItem.ToString() : null;
+            launchCancellation = new CancellationTokenSource();
+            var cancellation = launchCancellation.Token;
             try
             {
                 SetBusy(true);
-                VerifyStore.Load();
-                statusBar.Text = "正在安装 " + selected.Id;
-                await InstallOneVersionAsync(selected.Id, selected.Url, selected.Sha1);
+                statusBar.Text = "Installing " + selected.Id;
+                await Task.Run(() => VerifyStore.Load(), cancellation);
+                await InstallOneVersionAsync(selected.Id, selected.Url, selected.Sha1, cancellation);
                 string installed = selected.Id;
                 if (loader != null)
                 {
                     string profileUrl = "https://meta.fabricmc.net/v2/versions/loader/" +
                         Uri.EscapeDataString(selected.Id) + "/" + Uri.EscapeDataString(loader) + "/profile/json";
-                    string profile = await Task.Run(() => Net.DownloadString(profileUrl, cfg.Mirror));
+                    string profile = await Task.Run(() => Net.DownloadString(profileUrl, cfg.Mirror, cancellation), cancellation);
                     var json = Json.D(Json.Parse(profile));
                     installed = FileSafety.Id(Json.S(json, "id", ""));
-                    if (Json.S(json, "inheritsFrom", "") != selected.Id) throw new InvalidDataException("Fabric 原版继承不匹配");
+                    if (Json.S(json, "inheritsFrom", "") != selected.Id) throw new InvalidDataException("Fabric Vanilla inheritance mismatch");
                     string path = FileSafety.VersionFile(cfg.GameDir, installed, ".json");
-                    await Task.Run(() => FileSafety.WriteText(path, profile));
-                    await EnsureVersionFilesAsync(installed);
+                    cancellation.ThrowIfCancellationRequested();
+                    await Task.Run(() => FileSafety.WriteText(path, profile), cancellation);
+                    await EnsureVersionFilesAsync(installed, cancellation);
                 }
+                cancellation.ThrowIfCancellationRequested();
                 if (IsDisposed) return;
                 cfg.LastVersion = installed; cfg.Save();
                 ScanLocalVersions(); ApplyFilter(); SwitchPage("home");
-                statusBar.Text = "安装完成：" + installed;
-                MessageBox.Show("安装完成，选择版本即可启动。", "完成");
+                statusBar.Text = "InstallDone：" + installed;
+                MessageBox.Show("InstallDone，selectversionready to launch.", "Done");
             }
-            catch (OperationCanceledException) { if (!IsDisposed) statusBar.Text = "安装已取消"; }
-            catch (Exception ex) { if (!IsDisposed) { statusBar.Text = "安装失败"; MessageBox.Show(ex.Message, "安装失败"); } }
-            finally { try { VerifyStore.Save(); } catch { }
-                SetBusy(false); }
+            catch (OperationCanceledException) { if (!IsDisposed) statusBar.Text = "InstallCancelled"; }
+            catch (Exception ex) { if (!IsDisposed) { statusBar.Text = "Installfailed"; MessageBox.Show(ex.Message, "Installfailed"); } }
+            finally { FinishOperationAsync(); }
         }
 
-        async Task InstallOneVersionAsync(string id, string url, string sha1)
+        async Task InstallOneVersionAsync(string id, string url, string sha1, CancellationToken cancellation)
         {
             string destination = FileSafety.VersionFile(cfg.GameDir, id, ".json");
             if (url != null)
             {
                 await RunDownloadsAsync(new List<DlItem> {
-                    new DlItem { Url = url, Dest = destination, Sha1 = sha1, Desc = "版本信息 " + id }
-                });
+                    new DlItem { Url = url, Dest = destination, Sha1 = sha1, Desc = "versioninfo " + id }
+                }, cancellation);
                 var json = Json.D(Json.Parse(await Task.Run(() => File.ReadAllText(destination, Encoding.UTF8))));
-                if (Json.S(json, "id", "") != id) throw new InvalidDataException("版本信息 ID 与官方清单不符");
+                if (Json.S(json, "id", "") != id) throw new InvalidDataException("versionID does not match the official manifest");
             }
-            await EnsureVersionFilesAsync(id);
+            await EnsureVersionFilesAsync(id, cancellation);
         }
 
-        async Task EnsureVersionFilesAsync(string id)
+        async Task EnsureVersionFilesAsync(string id, CancellationToken cancellation)
         {
             string root = cfg.GameDir;
             var download = CreateDownloadCallback();
-            var metadata = await Task.Run(() => LaunchPlanner.LoadMerged(root, id));
-            await VersionFiles.EnsureAsync(root, id, metadata, download, CancellationToken.None);
+            var metadata = await Task.Run(() => LaunchPlanner.LoadMerged(root, id), cancellation);
+            await VersionFiles.EnsureAsync(root, id, metadata, download, cancellation);
         }
 
         Func<List<DlItem>, CancellationToken, Task> CreateDownloadCallback()
@@ -372,7 +375,7 @@ namespace SuyunCraft
             }
             finally
             {
-                if (!IsDisposed) { dlTimer.Stop(); btnCancelDl.Enabled = false; bar.Pulse = false; }
+                if (!IsDisposed) { dlTimer.Stop(); btnCancelDl.Enabled = operationBusy && launchCancellation != null && !launchCancellation.IsCancellationRequested; bar.Pulse = false; }
                 if (mgr == manager) mgr = null;
             }
         }

@@ -33,9 +33,9 @@ namespace SuyunCraft
         {
             var fabricEntries = archive.Entries.Where(e => e.FullName == "fabric.mod.json").ToArray();
             if (fabricEntries.Length == 0) return null;
-            if (fabricEntries.Length != 1) throw new InvalidDataException("重复的 fabric.mod.json");
+            if (fabricEntries.Length != 1) throw new InvalidDataException("Duplicate fabric.mod.json");
             var entry = fabricEntries[0];
-            if (entry.Length > MaxMetadataBytes) throw new InvalidDataException("模组元数据超过 1 MB");
+            if (entry.Length > MaxMetadataBytes) throw new InvalidDataException("modmetadata exceeds 1 MB");
             string text;
             using (var input = entry.Open())
             using (var output = new MemoryStream())
@@ -43,19 +43,19 @@ namespace SuyunCraft
                 byte[] buffer = new byte[8192]; int count;
                 while ((count = input.Read(buffer, 0, buffer.Length)) > 0)
                 {
-                    if (output.Length + count > MaxMetadataBytes) throw new InvalidDataException("模组元数据超过 1 MB");
+                    if (output.Length + count > MaxMetadataBytes) throw new InvalidDataException("modmetadata exceeds 1 MB");
                     output.Write(buffer, 0, count);
                 }
                 text = new UTF8Encoding(false, true).GetString(output.ToArray()).TrimStart('\uFEFF');
             }
             var json = Json.D(Json.Parse(text));
-            if (json == null) throw new InvalidDataException("模组元数据必须是 JSON 对象");
+            if (json == null) throw new InvalidDataException("modmetadata must be a JSON object");
             // Schema 0 and future formats need their own reader, not a guessed interpretation.
             if (Json.L(json, "schemaVersion", 0) != 1) return null;
             string id = Json.S(json, "id", "");
-            if (!Regex.IsMatch(id, @"\A[a-z][a-z0-9_-]{1,63}\z")) throw new InvalidDataException("无效的 Fabric 模组 ID");
+            if (!Regex.IsMatch(id, @"\A[a-z][a-z0-9_-]{1,63}\z")) throw new InvalidDataException("invalid Fabric mod id");
             string version = Json.S(json, "version", "");
-            if (string.IsNullOrWhiteSpace(version)) throw new InvalidDataException("缺少模组版本");
+            if (string.IsNullOrWhiteSpace(version)) throw new InvalidDataException("missing mod version");
             var mod = new ModMetadata { Id = id, Version = version };
             object environment = Json.O(json, "environment");
             if (environment is string) mod.ClientEnabled = (string)environment != "server";
@@ -114,12 +114,12 @@ namespace SuyunCraft
             if (context.Loader != "fabric")
             {
                 issues.Add(new LaunchIssue(context.Loader == "vanilla" ? "MODS_WITHOUT_LOADER" : "MOD_LOADER_UNCHECKED",
-                    context.Loader == "vanilla" ? "当前版本未检测到模组加载器，mods 内的模组可能不会生效。" : "当前仅检查加载器标记，尚未解析 " + context.Loader + " 的依赖规则。"));
+                    context.Loader == "vanilla" ? "No mod loader detected; mods may not take effect。" : "Loader markers only; not yet parsed:  " + context.Loader + "  dependency rules。"));
                 if (context.Loader == "vanilla") return issues;
             }
             if (paths.Length > 2048)
             {
-                issues.Add(new LaunchIssue("MOD_SCAN_LIMIT", "模组超过 2048 个，已跳过预检，请交由加载器验证。"));
+                issues.Add(new LaunchIssue("MOD_SCAN_LIMIT", "modOver 2048 mods; preflight skipped, deferring to the loader。"));
                 return issues;
             }
             var mods = new List<ModMetadata>();
@@ -131,15 +131,15 @@ namespace SuyunCraft
                 {
                     string safePath = FileSafety.Under(modsDirectory, name);
                     if (new FileInfo(safePath).Length > 512L * 1024 * 1024)
-                    { issues.Add(new LaunchIssue("MOD_SCAN_LIMIT", name + " 超过 512 MB，未预检。")); continue; }
+                    { issues.Add(new LaunchIssue("MOD_SCAN_LIMIT", name + "  exceeds 512 MB; not preflighted.")); continue; }
                     using (var archive = ZipFile.OpenRead(safePath))
                     {
-                        if (archive.Entries.Count > 100000) throw new InvalidDataException("ZIP 条目数超过限制");
+                        if (archive.Entries.Count > 100000) throw new InvalidDataException("ZIP entry count exceeds the limit");
                         var loaders = ModManagement.DetectLoaders(archive);
                         if (context.Loader != "fabric")
                         {
                             if (context.Loader != "vanilla" && loaders.Count > 0 && !ModManagement.RecognizesLoader(loaders, context.Loader))
-                                issues.Add(new LaunchIssue("MOD_LOADER_MISMATCH", name + " 的加载器标记为 " + string.Join(" / ", loaders) + "，当前为 " + context.Loader + "。"));
+                                issues.Add(new LaunchIssue("MOD_LOADER_MISMATCH", name + "  loader marker:  " + string.Join(" / ", loaders) + "，currently " + context.Loader + "。"));
                             continue;
                         }
                         ModMetadata mod = null;
@@ -148,11 +148,11 @@ namespace SuyunCraft
                         {
                             bool mismatch = loaders.Count > 0 && !loaders.Contains("fabric");
                             issues.Add(new LaunchIssue(mismatch ? "MOD_LOADER_MISMATCH" : "MOD_METADATA_UNCHECKED",
-                                name + (mismatch ? " 的加载器标记为 " + string.Join(" / ", loaders) + "，尚未确认其 Fabric 兼容性。" : " 未识别到受支持的 Fabric 元数据。")));
+                                name + (mismatch ? "  loader marker:  " + string.Join(" / ", loaders) + "，Fabric compatibility unconfirmed." : "  No supported Fabric metadata found.")));
                             continue;
                         }
                         mod.FileName = name;
-                        if (!mod.ClientEnabled) { issues.Add(new LaunchIssue("MOD_SERVER_ONLY", name + " 为服务端模组，客户端预检已跳过。")); continue; }
+                        if (!mod.ClientEnabled) { issues.Add(new LaunchIssue("MOD_SERVER_ONLY", name + "  is server-only; client preflight skipped。")); continue; }
                         mods.Add(mod);
                         if (mod.HasNestedJars)
                         {
@@ -170,19 +170,19 @@ namespace SuyunCraft
                 {
                     if (!(ex is IOException) && !(ex is InvalidDataException) && !(ex is ArgumentException) &&
                         !(ex is InvalidOperationException) && !(ex is UnauthorizedAccessException)) throw;
-                    issues.Add(new LaunchIssue("MOD_METADATA_INVALID", name + " 无法读取模组元数据：" + ex.Message, true));
+                    issues.Add(new LaunchIssue("MOD_METADATA_INVALID", name + " Failed to read mod metadata：" + ex.Message, true));
                 }
             }
             if (context.Loader != "fabric") return issues;
             foreach (var duplicate in mods.Where(m => !m.IsNested).GroupBy(m => m.Id).Where(g => g.Count() > 1))
-                issues.Add(new LaunchIssue("MOD_DUPLICATE_ID", "多个顶层模组声明相同 ID " + duplicate.Key + "：" +
-                    string.Join(", ", duplicate.Select(m => m.FileName)) + "。请检查是否重复安装。"));
-            // 完整依赖解析：版本范围、breaks/conflicts、嵌套 jar 提供者、加载器覆盖配置
+                issues.Add(new LaunchIssue("MOD_DUPLICATE_ID", "Multiple top-level mods declare ID " + duplicate.Key + "：" +
+                    string.Join(", ", duplicate.Select(m => m.FileName)) + "。Check for duplicate installs."));
+            // Full dependency resolution: ranges, breaks/conflicts, nested jar providers, loader overrides
             var overrides = LoaderOverrides.Load(context.GameDirectory, issues);
             foreach (LaunchIssue r in ModDependencyResolver.Resolve(mods, minecraftVersion, javaMajor, overrides))
                 issues.Add(r);
             if (mods.Any(m => m.HasUnparsableConstraints))
-                issues.Add(new LaunchIssue("MOD_RESOLUTION_PARTIAL", "部分模组使用了无法解析的版本约束格式，相关兼容性由 Fabric Loader 最终判断。"));
+                issues.Add(new LaunchIssue("MOD_RESOLUTION_PARTIAL", "Some mods use unparseable version constraints; the loader makes the final call。"));
             return issues;
         }
     }

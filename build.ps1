@@ -14,6 +14,7 @@ foreach ($ref in $refs) { $opt += "/reference:$ref" }
 $opt += @(Get-ChildItem -LiteralPath 'src' -Filter '*.cs' | ForEach-Object { 'src\' + $_.Name })
 & $csc $opt
 if ($LASTEXITCODE -ne 0) { throw "Build failed ($LASTEXITCODE)" }
+Copy-Item -LiteralPath 'app.config' -Destination 'SuyunCraft.exe.config' -Force
 Write-Host '[build] OK -> SuyunCraft.exe'
 if ($Tests) {
     $testOpt = @('/nologo', '/target:exe', '/main:SuyunCraft.RegressionTests', '/codepage:65001',
@@ -24,6 +25,7 @@ if ($Tests) {
     $testOpt += @(Get-ChildItem -LiteralPath 'tests' -Filter '*.cs' | ForEach-Object { 'tests\' + $_.Name })
     & $csc $testOpt
     if ($LASTEXITCODE -ne 0) { throw "Test build failed ($LASTEXITCODE)" }
+    Copy-Item -LiteralPath 'app.config' -Destination 'tests\RegressionTests.exe.config' -Force
     & '.\tests\RegressionTests.exe'
     if ($LASTEXITCODE -ne 0) { throw "Regression tests failed ($LASTEXITCODE)" }
 }

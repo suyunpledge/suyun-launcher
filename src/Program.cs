@@ -11,7 +11,7 @@ namespace SuyunCraft
     static class Program
     {
         public const string AppName = "SuyunCraft";
-        public const string AppVersion = "1.9";
+        public const string AppVersion = "1.10";
 
         [STAThread]
         static void Main(string[] args)
@@ -62,7 +62,7 @@ namespace SuyunCraft
                 string text = "JAVA=" + plan.JavaExe + "\r\nCWD=" + plan.WorkingDir + "\r\nCMD=" + plan.CommandText + "\r\n";
                 File.WriteAllText(outPath, text, Encoding.UTF8);
                 Console.WriteLine(text);
-                Console.WriteLine("[OK] dry-run 写入 " + outPath);
+                Console.WriteLine("[OK] dry-run write " + outPath);
             }
             catch (Exception ex)
             {
@@ -77,7 +77,7 @@ namespace SuyunCraft
             {
                 var list = Net.GetVersions();
                 var latest = list.FirstOrDefault(v => v.Type == "release");
-                Console.WriteLine("[OK] 版本清单获取成功，共 " + list.Count + " 个版本，最新正式版: " + (latest != null ? latest.Id : "?"));
+                Console.WriteLine("[OK] versionManifest fetchsucceeded，Total " + list.Count + "  versions, latestRelease: " + (latest != null ? latest.Id : "?"));
                 foreach (var v in list.Take(5)) Console.WriteLine("  " + v.Id + "  (" + v.Type + ")");
             }
             catch (Exception ex) { Console.WriteLine("[FAIL] " + ex.Message); Environment.ExitCode = 1; }

@@ -17,19 +17,19 @@ namespace SuyunCraft
         Label lblMemBig, lblLogHint;
         UiButton btnClearLog;
 
-        // ---------------- 主页 ----------------
+        // ---------------- Home ----------------
         void BuildHome()
         {
             homePage = new UiPage();
-            homePage.HeaderTitle = "主页";
-            homePage.HeaderSubtitle = "离线账户、版本与内存配置";
+            homePage.HeaderTitle = "Home";
+            homePage.HeaderSubtitle = "Offline account, version and memory settings";
 
-            // ---------- 游戏配置卡片 ----------
+            // ---------- Game settings card ----------
             cardConfig = new UiCard();
             cardConfig.Shadow = true;
             homePage.Controls.Add(cardConfig);
 
-            Label l1 = MkLabel("玩家名（离线登录）", 20, 16, 220);
+            Label l1 = MkLabel("Player name (offline)", 20, 16, 220);
             l1.ForeColor = Theme.Muted;
             l1.Font = Theme.Caption;
             cardConfig.Controls.Add(l1);
@@ -37,7 +37,7 @@ namespace SuyunCraft
             txtUser.SetBounds(20, 38, 250, 34);
             cardConfig.Controls.Add(txtUser);
 
-            Label l2 = MkLabel("游戏版本", 20, 84, 220);
+            Label l2 = MkLabel("gameversion", 20, 84, 220);
             l2.ForeColor = Theme.Muted;
             l2.Font = Theme.Caption;
             cardConfig.Controls.Add(l2);
@@ -45,14 +45,14 @@ namespace SuyunCraft
             cmbVersion.SetBounds(20, 106, 250, 34);
             cardConfig.Controls.Add(cmbVersion);
             btnRefreshVer = new UiButton();
-            btnRefreshVer.Text = "刷新";
+            btnRefreshVer.Text = "Refresh";
             btnRefreshVer.Icon = UiIcon.Refresh;
             btnRefreshVer.SetBounds(282, 105, 96, 36);
             Theme.StyleButton(btnRefreshVer, null);
             btnRefreshVer.Click += delegate { ScanLocalVersions(); };
             cardConfig.Controls.Add(btnRefreshVer);
 
-            Label l3 = MkLabel("运行内存", 20, 154, 220);
+            Label l3 = MkLabel("Memory", 20, 154, 220);
             l3.ForeColor = Theme.Muted;
             l3.Font = Theme.Caption;
             cardConfig.Controls.Add(l3);
@@ -72,7 +72,7 @@ namespace SuyunCraft
             cardConfig.Controls.Add(lblMem);
 
             chkAutoMem = new UiCheckBox();
-            chkAutoMem.Text = "自动分配（推荐）";
+            chkAutoMem.Text = "Auto (recommended）";
             chkAutoMem.SetBounds(20, 216, 170, 24);
             chkAutoMem.CheckedChanged += delegate
             {
@@ -82,13 +82,13 @@ namespace SuyunCraft
             cardConfig.Controls.Add(chkAutoMem);
 
             chkIsolation = new UiCheckBox();
-            chkIsolation.Text = "版本隔离";
+            chkIsolation.Text = "versionisolation";
             chkIsolation.SetBounds(206, 216, 120, 24);
             ToolTip tt = new ToolTip();
-            tt.SetToolTip(chkIsolation, "每个版本使用独立的 mods / config / 存档目录");
+            tt.SetToolTip(chkIsolation, "Each version uses its own mods / config / savesdirectory");
             cardConfig.Controls.Add(chkIsolation);
 
-            // ---------- 启动卡片 ----------
+            // ---------- Launchcard ----------
             cardLaunch = new UiCard();
             cardLaunch.Shadow = true;
             homePage.Controls.Add(cardLaunch);
@@ -96,13 +96,13 @@ namespace SuyunCraft
             btnLaunch = new UiButton(); btnLaunch.Name = "btnLaunch";
             btnLaunch.Kind = UiButtonKind.Primary;
             btnLaunch.Icon = UiIcon.Play;
-            btnLaunch.Text = "启动游戏";
+            btnLaunch.Text = "Launchgame";
             btnLaunch.Font = Theme.LaunchBold;
             btnLaunch.SetBounds(16, 16, 248, 64);
-            btnLaunch.Click += delegate { LaunchGame(); };
+            btnLaunch.Click += delegate { if (operationBusy) CancelOperation(); else LaunchGame(); };
             cardLaunch.Controls.Add(btnLaunch);
 
-            Label memCap = MkLabel("已分配内存", 16, 92, 200);
+            Label memCap = MkLabel("Allocated memory", 16, 92, 200);
             memCap.ForeColor = Theme.Muted;
             memCap.Font = Theme.Caption;
             cardLaunch.Controls.Add(memCap);
@@ -112,23 +112,23 @@ namespace SuyunCraft
             lblMemBig.ForeColor = Theme.Accent;
             cardLaunch.Controls.Add(lblMemBig);
 
-            Label javaCap = MkLabel("Java 运行时", 16, 154, 200);
+            Label javaCap = MkLabel("Java runtime", 16, 154, 200);
             javaCap.ForeColor = Theme.Muted;
             javaCap.Font = Theme.Caption;
             cardLaunch.Controls.Add(javaCap);
 
-            lblJava = MkLabel("Java：检测中…", 16, 174, 248);
+            lblJava = MkLabel("Java：detect…", 16, 174, 248);
             lblJava.ForeColor = Theme.Text;
             lblJava.Font = Theme.Caption;
             lblJava.AutoEllipsis = true;
             lblJava.Height = 46;
             cardLaunch.Controls.Add(lblJava);
 
-            // ---------- 存档环境卡片 ----------
+            // ---------- Save instancecard ----------
             cardSave = new UiCard();
             homePage.Controls.Add(cardSave);
 
-            Label saveCap = MkLabel("存档环境", 20, 12, 200);
+            Label saveCap = MkLabel("Save instance", 20, 12, 200);
             saveCap.ForeColor = Theme.Muted;
             saveCap.Font = Theme.Caption;
             cardSave.Controls.Add(saveCap);
@@ -138,26 +138,26 @@ namespace SuyunCraft
             cmbSaveInstance.SelectedIndexChanged += delegate { SaveInstanceChanged(); };
             cardSave.Controls.Add(cmbSaveInstance);
 
-            btnSaveInstances = new UiButton { Name = "saveInstancesButton", Text = "存档隔离管理", Icon = UiIcon.Grid };
+            btnSaveInstances = new UiButton { Name = "saveInstancesButton", Text = "Save instance manager", Icon = UiIcon.Grid };
             btnSaveInstances.SetBounds(520, 33, 160, 36);
             Theme.StyleButton(btnSaveInstances, null);
             btnSaveInstances.Click += delegate { ManageSaveInstances(); };
             cardSave.Controls.Add(btnSaveInstances);
 
-            // ---------- 日志卡片 ----------
+            // ---------- Log card ----------
             cardLog = new UiCard();
             homePage.Controls.Add(cardLog);
 
-            Label lg = MkLabel("游戏运行日志", 20, 12, 300);
+            Label lg = MkLabel("Game log", 20, 12, 300);
             lg.Font = Theme.UiBold;
             cardLog.Controls.Add(lg);
-            lblLogHint = MkLabel("捕获自 stdout / stderr", 20, 32, 300);
+            lblLogHint = MkLabel("captured from stdout / stderr", 20, 32, 300);
             lblLogHint.ForeColor = Theme.TextDisabled;
             lblLogHint.Font = Theme.Caption;
             cardLog.Controls.Add(lblLogHint);
 
             btnClearLog = new UiButton();
-            btnClearLog.Text = "清空";
+            btnClearLog.Text = "clear";
             btnClearLog.SetBounds(700, 12, 64, 30);            Theme.StyleButton(btnClearLog, null);
             btnClearLog.Click += delegate { txtGameLog.Clear(); };
             cardLog.Controls.Add(btnClearLog);
@@ -177,20 +177,39 @@ namespace SuyunCraft
             int h = homePage.ClientSize.Height;
             if (w <= 0 || h <= 0) return;
 
-            int launchW = Ui.Px(280);
-            int configW = Math.Max(Ui.Px(360), w - launchW - Ui.Px(20));
+            int gap = Ui.Px(14);
+            int top = Ui.Px(58);
+            int rowH = Ui.Px(250);
+            int saveH = Ui.Px(74);
 
-            cardConfig.SetBounds(0, Ui.Px(62), configW, Ui.Px(250));
-            cardLaunch.SetBounds(w - launchW, Ui.Px(62), launchW, Ui.Px(250));
+            // LaunchCards default to 288 wide; shrink only when the window is too narrow
+            int launchW = Ui.Px(288);
+            int minConfig = Ui.Px(360);
+            if (w - launchW - gap < minConfig)
+                launchW = Math.Max(Ui.Px(200), w - gap - minConfig);
+            int configW = Math.Max(Ui.Px(300), w - launchW - gap);
 
-            cardSave.SetBounds(0, Ui.Px(324), w, Ui.Px(76));
-            cmbSaveInstance.Width = Math.Max(Ui.Px(220), w - Ui.Px(220));
-            btnSaveInstances.Left = w - Ui.Px(180);
+            cardConfig.SetBounds(0, top, configW, rowH);
+            cardLaunch.SetBounds(w - launchW, top, launchW, rowH);
 
-            int logTop = Ui.Px(412);
-            cardLog.SetBounds(0, logTop, w, Math.Max(Ui.Px(140), h - logTop));
-            btnClearLog.Left = w - Ui.Px(84);
-            txtGameLog.SetBounds(Ui.Px(16), Ui.Px(52), w - Ui.Px(32), Math.Max(Ui.Px(80), cardLog.Height - Ui.Px(68)));
+            int innerW = Math.Max(Ui.Px(90), launchW - Ui.Px(32));
+            btnLaunch.SetBounds(Ui.Px(16), Ui.Px(16), innerW, Ui.Px(64));
+            lblMemBig.Width = innerW;
+            lblJava.Width = innerW;
+
+            int saveTop = top + rowH + gap;
+            cardSave.SetBounds(0, saveTop, w, saveH);
+            int saveBtnW = Ui.Px(150);
+            int saveBtnX = Math.Max(Ui.Px(120), w - Ui.Px(20) - saveBtnW);
+            btnSaveInstances.SetBounds(saveBtnX, Ui.Px(33), saveBtnW, Ui.Px(36));
+            cmbSaveInstance.SetBounds(Ui.Px(20), Ui.Px(34),
+                Math.Max(Ui.Px(160), saveBtnX - Ui.Px(16) - Ui.Px(20)), Ui.Px(34));
+
+            int logTop = saveTop + saveH + gap;
+            cardLog.SetBounds(0, logTop, w, Math.Max(Ui.Px(48), h - logTop));
+            btnClearLog.Left = Math.Max(Ui.Px(80), w - Ui.Px(80));
+            txtGameLog.SetBounds(Ui.Px(16), Ui.Px(52), Math.Max(Ui.Px(80), w - Ui.Px(32)),
+                Math.Max(Ui.Px(40), cardLog.Height - Ui.Px(66)));
         }
 
         static long TotalRamGb()

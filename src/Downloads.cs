@@ -3,6 +3,7 @@ using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -29,18 +30,48 @@ namespace SuyunCraft
 
         public async Task RunAsync(CancellationToken cancellation = default(CancellationToken))
         {
-            cancellation.ThrowIfCancellationRequested();
-            using (cancellation.Register(() => Cancelled = true))
-                await RunCoreAsync().ConfigureAwait(false);
-            cancellation.ThrowIfCancellationRequested();
+            try
+            {
+                cancellation.ThrowIfCancellationRequested();
+                using (cancellation.Register(() => Cancelled = true))
+                    await RunCoreAsync().ConfigureAwait(false);
+                cancellation.ThrowIfCancellationRequested();
+            }
+            catch (OperationCanceledException) { Cancelled = true; throw; }
+            catch (Exception ex) { Error = ex; Cancelled = true; }
+            finally { Finished = true; }
+        }
+
+        internal static DlItem[] PrepareItems(IEnumerable<DlItem> source)
+        {
+            var unique = new Dictionary<string, DlItem>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in source)
+            {
+                if (item == null || string.IsNullOrWhiteSpace(item.Dest)) throw new InvalidDataException("Downloaddestination missing");
+                if (item.Size < 0 || item.Size > 1024L * 1024 * 1024 ||
+                    (!string.IsNullOrEmpty(item.Sha1) && !FileSafety.IsHash(item.Sha1, 40)) ||
+                    (!string.IsNullOrEmpty(item.Sha256) && !FileSafety.IsHash(item.Sha256, 64)))
+                    throw new InvalidDataException("DownloadInvalid size or hash format: " + item.Desc);
+                string path = Path.GetFullPath(item.Dest);
+                DlItem previous;
+                if (unique.TryGetValue(path, out previous))
+                {
+                    if (previous.Size != item.Size || !string.Equals(previous.Sha1 ?? "", item.Sha1 ?? "", StringComparison.OrdinalIgnoreCase) ||
+                        !string.Equals(previous.Sha256 ?? "", item.Sha256 ?? "", StringComparison.OrdinalIgnoreCase) ||
+                        (string.IsNullOrEmpty(item.Sha1) && string.IsNullOrEmpty(item.Sha256) && previous.Url != item.Url))
+                        throw new InvalidDataException("Conflicting verification info for one destination: " + item.Desc);
+                    continue;
+                }
+                unique.Add(path, new DlItem { Url = item.Url, Dest = path, Sha1 = item.Sha1, Sha256 = item.Sha256, Size = item.Size, Desc = item.Desc });
+            }
+            return unique.Values.ToArray();
         }
 
         async Task RunCoreAsync()
         {
             if (Concurrency < 1 || Concurrency > 32) throw new ArgumentOutOfRangeException("Concurrency");
             // Duplicate assets must share one destination and one writer.
-            var items = Queue.ToArray().GroupBy(i => Path.GetFullPath(i.Dest), StringComparer.OrdinalIgnoreCase)
-                .Select(g => g.First()).ToArray();
+            var items = PrepareItems(Queue.ToArray());
             DlItem unused;
             while (Queue.TryDequeue(out unused)) { }
             foreach (var item in items) Queue.Enqueue(item);
@@ -62,6 +93,7 @@ namespace SuyunCraft
                 DlItem item;
                 while (!Cancelled && Queue.TryDequeue(out item))
                 {
+                    CurrentFile = item.Desc ?? Path.GetFileName(item.Dest);
                     Exception last = null;
                     bool ok = false;
                     for (int attempt = 0; attempt < 3 && !ok && !Cancelled; attempt++)
@@ -75,7 +107,7 @@ namespace SuyunCraft
                     }
                     if (!ok)
                     {
-                        if (!Cancelled) throw new IOException("下载失败：" + item.Desc, last);
+                        if (!Cancelled) throw new IOException("Downloadfailed：" + item.Desc, last);
                         break;
                     }
                     Interlocked.Increment(ref DoneFiles);
@@ -110,22 +142,8 @@ namespace SuyunCraft
                 using (var input = response.GetResponseStream())
                 using (var output = new FileStream(temp, FileMode.CreateNew, FileAccess.Write, FileShare.None, 65536))
                 {
-                    byte[] buffer = new byte[65536];
-                    int count;
-                    while ((count = input.Read(buffer, 0, buffer.Length)) > 0)
-                    {
-                        token.ThrowIfCancellationRequested();
-                        if (item.Size > 0 && got + count > item.Size) throw new InvalidDataException("下载文件超过声明大小");
-                        if (got + count > 1024L * 1024 * 1024) throw new InvalidDataException("单文件超过 1 GB 限制");
-                        output.Write(buffer, 0, count);
-                        got += count;
-                        Interlocked.Add(ref InflightBytes, count);
-                    }
+                    CopyVerified(input, output, item, token, count => { got += count; Interlocked.Add(ref InflightBytes, count); });
                 }
-                if (!FileSafety.Matches(temp, item.Sha1, item.Size)) throw new InvalidDataException("文件大小或 SHA1 校验失败：" + item.Desc);
-                if (!string.IsNullOrEmpty(item.Sha256) &&
-                    (!FileSafety.IsHash(item.Sha256, 64) || !string.Equals(FileSafety.Hash(temp, true), item.Sha256, StringComparison.OrdinalIgnoreCase)))
-                    throw new InvalidDataException("SHA256 校验失败：" + item.Desc);
                 token.ThrowIfCancellationRequested();
                 FileSafety.Commit(temp, item.Dest);
                 Interlocked.Add(ref DoneBytes, got);
@@ -135,6 +153,44 @@ namespace SuyunCraft
                 Interlocked.Add(ref InflightBytes, -got);
                 if (File.Exists(temp)) File.Delete(temp);
             }
+        }
+
+        // Hash while streaming: never reread the downloaded file just to verify it.
+        internal static long CopyVerified(Stream input, Stream output, DlItem item, CancellationToken token, Action<int> progress = null)
+        {
+            using (var sha1 = string.IsNullOrEmpty(item.Sha1) ? null : SHA1.Create())
+            using (var sha256 = string.IsNullOrEmpty(item.Sha256) ? null : SHA256.Create())
+            {
+                long got = 0;
+                byte[] buffer = new byte[65536];
+                while (true)
+                {
+                    token.ThrowIfCancellationRequested();
+                    int count = input.Read(buffer, 0, buffer.Length);
+                    if (count == 0) break;
+                    token.ThrowIfCancellationRequested();
+                    got = checked(got + count);
+                    if (got > 1024L * 1024 * 1024 || (item.Size > 0 && got > item.Size))
+                        throw new InvalidDataException("DownloadfileSize limit exceeded: " + item.Desc);
+                    if (sha1 != null) sha1.TransformBlock(buffer, 0, count, buffer, 0);
+                    if (sha256 != null) sha256.TransformBlock(buffer, 0, count, buffer, 0);
+                    output.Write(buffer, 0, count);
+                    if (progress != null) progress(count);
+                }
+                token.ThrowIfCancellationRequested();
+                if (got == 0 || (item.Size > 0 && got != item.Size)) throw new InvalidDataException("Downloadfileempty or wrong size: " + item.Desc);
+                VerifyHash(sha1, item.Sha1, item.Desc);
+                VerifyHash(sha256, item.Sha256, item.Desc);
+                return got;
+            }
+        }
+
+        static void VerifyHash(HashAlgorithm algorithm, string expected, string description)
+        {
+            if (algorithm == null) return;
+            algorithm.TransformFinalBlock(new byte[0], 0, 0);
+            if (!string.Equals(BitConverter.ToString(algorithm.Hash).Replace("-", ""), expected, StringComparison.OrdinalIgnoreCase))
+                throw new InvalidDataException("DownloadfileHash verification failed: " + description);
         }
     }
 }

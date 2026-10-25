@@ -1,4 +1,4 @@
-# 存档隔离（启动器 1.9）
+# 存档隔离（启动器 1.9+）
 
 一个存档使用一个独立环境。同一 Minecraft/Fabric 版本可以建立多个环境，每个环境拥有独立的模组、配置、存档、资源包、脚本及运行目录。切换环境需要退出游戏并重新启动，游戏启动时才会加载该环境的模组。
 
@@ -40,6 +40,13 @@ suyuncraft-instances/
 - 每个隔离环境只存放一个世界。启动前发现多个 `level.dat` 世界时拒绝启动，请将各世界分别复制导入。游戏内仍能手动创建第二个世界；它会使用当前环境的同一套模组，下一次启动会要求拆分。
 - 复制在 `.creating-<ID>` 临时目录完成，成功后才发布环境；失败/取消会清理该临时副本。进程被强制结束时可能留下临时目录，它不会出现在可用环境列表里。每次复制上限 256 GB、200000 文件/目录、128 层目录；目录联接和符号链接会被拒绝。
 
+## 备份导出与删除（1.10 增强）
+
+- 「备份导出」把整个环境打包为 `%APPDATA%/SuyunCraft/exports/instance-<ID>-<时间>-<随机>.zip`，文件名唯一，永不覆盖早前导出。
+- 导出全程持有环境锁并逐个锁定世界的 `session.lock`：环境被启动器占用、游戏正在运行或世界被 Minecraft 持有时直接拒绝，不会产出不完整备份。
+- 备份保留空的 mods/config 等目录，排除 `.suyuncraft-instance.lock` 与 `session.lock`；导出途中可取消，取消后清理临时文件并释放全部锁。
+- 「删除环境」先经跨进程维护门与文件锁确认无人使用，再把目录移入 `suyuncraft-instances/.deleting-<ID>-<随机>` 退位目录后删除；仍有文件被占用时保留退位目录并提示恢复路径，不会半删。
+
 这是游戏目录隔离，不是进程文件权限沙箱。模组自行写死外部路径、共享数据库或读取全局数据时，还需要调整它自身的设置。用户手动移除存档所需模组，也可能损坏该存档的内容；环境隔离不会转换已有世界数据。
 
 ## AI 桥接
@@ -50,4 +57,4 @@ suyuncraft-instances/
 
 202 项 C# 回归、16 项 WinForms 检查通过，日志见 `tests/save-isolation-offline-results.txt` 和 `tests/save-isolation-ui-results.txt`。尚未实际进入 Minecraft 验证模组加载、存档加载或跨环境切换。本次使用的世界和 JAR 均为本地测试夹具，未对用户真实存档执行迁移。
 
-核心入口为 `GameDirectories.Resolve/Acquire`、`SaveIsolation.Create`。后续新增下载器、模组管理入口或桥接入口必须沿用统一解析；不要仅根据 `Config.GameDir` 或 `VersionIsolation` 自行拼接目录。可进一步增加环境备份/导出、可控版本升级、NBT 版本检查和真实游戏组合测试。
+核心入口为 `GameDirectories.Resolve/Acquire`、`SaveIsolation.Create`。后续新增下载器、模组管理入口或桥接入口必须沿用统一解析；不要仅根据 `Config.GameDir` 或 `VersionIsolation` 自行拼接目录。环境备份导出已提供（见上），后续可增加可控版本升级、NBT 版本检查和真实游戏组合测试。

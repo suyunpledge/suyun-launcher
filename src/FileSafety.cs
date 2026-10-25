@@ -5,6 +5,7 @@ using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.RegularExpressions;
+using System.Threading;
 
 namespace SuyunCraft
 {
@@ -14,6 +15,7 @@ namespace SuyunCraft
         // re-walking ancestor directories. Never persisted, never shared across launches.
         public sealed class VerifyCache
         {
+            public CancellationToken Cancellation;
             internal readonly Dictionary<string, bool> MatchResults = new Dictionary<string, bool>(StringComparer.OrdinalIgnoreCase);
             internal readonly HashSet<string> SafeDirs = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
         }
@@ -23,14 +25,15 @@ namespace SuyunCraft
             if (string.IsNullOrWhiteSpace(value) || value == "." || value == ".." ||
                 value.IndexOfAny(Path.GetInvalidFileNameChars()) >= 0 || value.EndsWith(".") ||
                 value.EndsWith(" ") || Regex.IsMatch(value, @"^(CON|PRN|AUX|NUL|COM[1-9]|LPT[1-9])(\.|$)", RegexOptions.IgnoreCase))
-                throw new InvalidDataException("无效的版本或文件标识: " + value);
+                throw new InvalidDataException("Invalid version or file id: " + value);
             return value;
         }
 
         public static string Under(string root, string relative, VerifyCache cache = null)
         {
+            if (cache != null) cache.Cancellation.ThrowIfCancellationRequested();
             if (string.IsNullOrWhiteSpace(relative) || Path.IsPathRooted(relative) || relative.Contains(":"))
-                throw new InvalidDataException("拒绝不安全路径: " + relative);
+                throw new InvalidDataException("Rejecting unsafe path: " + relative);
             string[] parts = relative.Replace('\\', '/').Split('/');
             foreach (string part in parts)
             {
@@ -40,7 +43,7 @@ namespace SuyunCraft
             string basePath = Path.GetFullPath(root).TrimEnd(Path.DirectorySeparatorChar, Path.AltDirectorySeparatorChar);
             string target = Path.GetFullPath(Path.Combine(basePath, relative.Replace('/', Path.DirectorySeparatorChar)));
             if (!target.StartsWith(basePath + Path.DirectorySeparatorChar, StringComparison.OrdinalIgnoreCase))
-                throw new InvalidDataException("路径超出目标目录: " + relative);
+                throw new InvalidDataException("Path escapes the target directory: " + relative);
             // Junctions and symbolic links must not redirect a metadata-controlled path outside the root.
             string cursor = target;
             while (cursor != null && !cursor.Equals(basePath, StringComparison.OrdinalIgnoreCase))
@@ -48,7 +51,7 @@ namespace SuyunCraft
                 if (cache != null && cache.SafeDirs.Contains(cursor)) break;
                 if ((File.Exists(cursor) || Directory.Exists(cursor)) &&
                     (File.GetAttributes(cursor) & FileAttributes.ReparsePoint) != 0)
-                    throw new InvalidDataException("拒绝通过链接写入: " + cursor);
+                    throw new InvalidDataException("Rejecting writes through links: " + cursor);
                 if (cache != null) cache.SafeDirs.Add(cursor);
                 cursor = Path.GetDirectoryName(cursor);
             }
@@ -66,40 +69,53 @@ namespace SuyunCraft
             return hash != null && Regex.IsMatch(hash, "\\A[0-9a-fA-F]{" + length + "}\\z");
         }
 
-        public static string Hash(string path, bool sha256)
+        public static string Hash(string path, bool sha256, CancellationToken cancellation = default(CancellationToken))
         {
             using (HashAlgorithm algorithm = sha256 ? (HashAlgorithm)SHA256.Create() : SHA1.Create())
             using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 65536))
-                return BitConverter.ToString(algorithm.ComputeHash(stream)).Replace("-", "").ToLowerInvariant();
+            {
+                byte[] buffer = new byte[65536];
+                while (true)
+                {
+                    cancellation.ThrowIfCancellationRequested();
+                    int read = stream.Read(buffer, 0, buffer.Length);
+                    if (read == 0) break;
+                    algorithm.TransformBlock(buffer, 0, read, buffer, 0);
+                }
+                cancellation.ThrowIfCancellationRequested();
+                algorithm.TransformFinalBlock(new byte[0], 0, 0);
+                return BitConverter.ToString(algorithm.Hash).Replace("-", "").ToLowerInvariant();
+            }
         }
 
         public static bool Matches(string path, string sha1, long size, VerifyCache cache = null)
         {
             if (cache == null) return MatchesCore(path, sha1, size);
+            cache.Cancellation.ThrowIfCancellationRequested();
             var info = new FileInfo(path);
             string key = Path.GetFullPath(path) + "|" + sha1 + "|" + size + "|" +
                 (info.Exists ? info.Length : -1) + "|" + (info.Exists ? info.LastWriteTimeUtc.Ticks : 0);
             bool cached;
             if (cache.MatchResults.TryGetValue(key, out cached)) return cached;
-            // 持久层：上次完整校验后文件未变 → 免哈希
+            // Persistent layer: file unchanged since last full verify → skips hashing
             if (VerifyStore.Lookup(path, sha1, size))
             {
                 cache.MatchResults[key] = true;
                 return true;
             }
-            bool result = MatchesCore(path, sha1, size);
+            bool result = MatchesCore(path, sha1, size, cache.Cancellation);
             cache.MatchResults[key] = result;
             if (result) VerifyStore.Record(path, sha1, size);
             return result;
         }
 
-        static bool MatchesCore(string path, string sha1, long size)
+        static bool MatchesCore(string path, string sha1, long size, CancellationToken cancellation = default(CancellationToken))
         {
             if (!File.Exists(path)) return false;
             long actual = new FileInfo(path).Length;
             if (actual == 0 || (size > 0 && actual != size)) return false;
             return string.IsNullOrEmpty(sha1) ||
-                (IsHash(sha1, 40) && string.Equals(Hash(path, false), sha1, StringComparison.OrdinalIgnoreCase));
+                (IsHash(sha1, 40) && string.Equals(Hash(path, false, cancellation), sha1, StringComparison.OrdinalIgnoreCase));
         }
 
         public static void Commit(string temp, string destination)
@@ -132,7 +148,7 @@ namespace SuyunCraft
                     string target = Under(destination, entry.FullName);
                     expanded = checked(expanded + entry.Length);
                     if (expanded > 2L * 1024 * 1024 * 1024 || zip.Entries.Count > 100000)
-                        throw new InvalidDataException("压缩包展开大小超过限制");
+                        throw new InvalidDataException("Archive expansion exceeds the limit");
                     if (string.IsNullOrEmpty(entry.Name)) { Directory.CreateDirectory(target); continue; }
                     Directory.CreateDirectory(Path.GetDirectoryName(target));
                     entry.ExtractToFile(target, false);

@@ -1,5 +1,7 @@
 # GLM‑5.3 后端续开发交接
 
+2026-10-25 1.10 启动可靠性专项（Codex 起草，GLM 5.3 收尾）：下载全程流式 SHA1/SHA256 校验（`DownloadManager.CopyVerified`，完成后不再重读文件复验），`DownloadItems/PrepareItems` 在网络请求前拒绝同目标冲突与畸形哈希；取消令牌深入文件哈希、校验缓存、Java 探测（`JavaUtil` 指纹缓存 + 卡死即杀 + 只缓存有效结果）、native 解压、`Net.RaceFetch` 竞速（胜出或用户取消即中止其余通道）与备份导出。`SaveIsolation` 新增跨进程 `MaintenanceLease` 维护门；删除改走 `.deleting-*` 退位目录（被占用可恢复），导出全程持环境锁并锁定世界 `session.lock`、保留空目录、文件名含 Guid 不覆盖、取消清理临时文件。`MainForm`：忙时启动键变「取消操作」（Esc 同效）、`GameLogBuffer` 有界日志队列、日志文件 10 MB 轮转、`VerifyStore` 读写与报告保存移出 UI 线程、启动取锁与缓存加载后台化；重开启动器后环境选择重新锁定绑定版本。校验缓存条目上限 50000/16 MB，记录解析 fail-closed。版本号 1.10（`AssemblyInfo.cs`、`Program.cs` 已同步）。GLM 5.3 收尾：修复 `StartupReliabilityTests.Rejected` 未按项目惯例捕获 `InvalidDataException` 导致的回归中断，256 项离线回归与 16 项界面检查通过（日志 `tests/backend-20261025.txt`），`SAVE-ISOLATION.md` 补充导出/删除边界。备份 `backup/before-backend-20261025-221431`。P2 剩余：`LaunchSession` 进程生命周期分离、首条游戏日志耗时记录、冷/热启动同机测量、Java 严格策略提示；P3 不变。
+
 2026-10-24 指令与战斗专项：AI 模组升级 0.5.0（C# JAR 引用已同步）。新增 `Commands.java` 白名单纯逻辑类（根 time/weather/gamemode/difficulty/tp/effect，字符集 `[A-Za-z0-9_-.:@ ]`、≤100 字符、≤8 参数、禁前导斜杠，配 `CommandTests` 19 项）；`command` 动作经 `allowCommands` 门后 `networkHandler.sendCommand` 发送，执行前二次校验。新增 `attack` 动作（`allowCombat` 门）：`target:nearest` 锁定 8 格内最近 `HostileEntity`（`EnvironmentProbe.nearestHostile`），每 tick `setAim` 平滑追踪、`getAttackCooldownProgress>=1` 才 `attackEntity`+挥手，`approach` 追击复用 safeStep/canStepUp；仅攻击敌对生物，生命<10 或目标>12 格或界面打开即停；击败后自动转向下一目标。`/scai fight [1-200]` 本地零 API 战斗。环境摘要新增 `nearestHostileType/nearestHostileDistance`（桥接快照严格校验），状态门 `commandsAllowed/combatAllowed` 入桥接白名单。验证：19 命令、27 桥接、116 蓝图、14 对话、19 运动、202 回归、16 UI 通过；未进真实 MC 验证权限路径与战斗手感。备份 `backup/before-combat-commands-20261024`。
 
 2026-10-24 动作流畅度专项：AI 模组升级 0.4.0（启动器 JAR 引用 `src/AiIntegration.cs` 已同步）。新增 `Motion.java`（纯运动学：限速转向、±180° 最短路径、yaw/pitch 求解，配 `MotionTests` 19 项）；`AiClient` 的 `look` 改为持续限速插值并跨动作延续，`move` 支持可选 `yaw`/`sprint`、1 格台阶自动跳（`canStepUp`）、跳跃后 `airGrace` 与 `EnvironmentProbe.descentSafe` 下坡宽限、连续受阻 8 tick 才停；新增 `lookat` 动作与 `/scai goto <x> <z> [1-400]` 本地行走（卡住检测、危险停止、HUD 进度）；`LocalBuilder` 放置前平滑瞄准（上限 14 tick）。`bridge.py` 校验改为必选+可选字段集合（wait/break 仍必带 ticks），SYSTEM 提示同步，新增本地命令「向前走十步/向前跑一段」。验证：24 桥接、116 蓝图、14 对话、19 运动、202 启动器回归、16 UI 通过；未进真实 MC。备份 `backup/before-smooth-motion-20261024`。
@@ -121,7 +123,7 @@ var prepared = await service.PrepareAsync(config, versionId, progress, cancellat
 ## 验证与交付
 
 ```powershell
-Set-Location 'C:\Users\%USERPROFILE%\Desktop\本地工作流\SuyunCraft'
+Set-Location '%USERPROFILE%\Desktop\本地工作流\SuyunCraft'
 .\build.ps1 -Tests
 .\tests\RegressionTests.exe --ui-smoke
 .\package.ps1

@@ -24,23 +24,45 @@ namespace SuyunCraft
         {
             if (string.IsNullOrEmpty(cfg.SaveInstanceId)) return Legacy(cfg, version, isolation ?? cfg.VersionIsolation);
             var instance = SaveIsolation.Load(cfg.GameDir, cfg.SaveInstanceId);
-            if (instance.Version != version) throw new InvalidOperationException("存档环境绑定版本 " + instance.Version + "，请切换对应版本；不能用其他版本直接打开。");
+            if (instance.Version != version) throw new InvalidOperationException("Save instanceboundversion " + instance.Version + "，switch to that version; other versions cannot open it。");
             string dir = SaveIsolation.GameDirectory(cfg.GameDir, instance.Id);
-            if (!Directory.Exists(dir)) throw new DirectoryNotFoundException("存档环境目录丢失，已停止操作：" + dir);
+            if (!Directory.Exists(dir)) throw new DirectoryNotFoundException("Save instancedirectorymissing; operation stopped: " + dir);
             return dir;
         }
 
         public static FileStream Acquire(Config cfg, string version, bool allowMultipleWorlds = false)
         {
+            using (EnterMaintenance(Resolve(cfg, version)))
+            {
             string dir = Resolve(cfg, version);
-            Directory.CreateDirectory(dir);
+            if (string.IsNullOrEmpty(cfg.SaveInstanceId)) Directory.CreateDirectory(dir);
             try
             {
                 var stream = new FileStream(FileSafety.Under(dir, ".suyuncraft-instance.lock"), FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None);
                 try { SaveIsolation.CheckWorlds(dir, !allowMultipleWorlds && !string.IsNullOrEmpty(cfg.SaveInstanceId), true); return stream; }
                 catch { stream.Dispose(); throw; }
             }
-            catch (IOException ex) { throw new IOException("该环境正在使用或存档仍被游戏占用，请退出游戏后再操作。", ex); }
+            catch (IOException ex) { throw new IOException("The instance is in use or the world is still locked; exit the game first.", ex); }
+            }
+        }
+
+        // A short cross-process gate lives outside the directory being renamed/deleted.
+        internal static IDisposable EnterMaintenance(string directory) { return new MaintenanceLease(directory); }
+        sealed class MaintenanceLease : IDisposable
+        {
+            readonly Mutex mutex;
+            public MaintenanceLease(string directory)
+            {
+                string key;
+                using (var hash = System.Security.Cryptography.SHA256.Create())
+                    key = BitConverter.ToString(hash.ComputeHash(Encoding.UTF8.GetBytes(Path.GetFullPath(directory).TrimEnd('\\', '/').ToUpperInvariant()))).Replace("-", "");
+                mutex = new Mutex(false, "Local\\SuyunCraft-environment-" + key);
+                bool acquired;
+                try { acquired = mutex.WaitOne(0); }
+                catch (AbandonedMutexException) { acquired = true; }
+                if (!acquired) { mutex.Dispose(); throw new IOException("The instance is under maintenance; try again shortlyretry。"); }
+            }
+            public void Dispose() { mutex.ReleaseMutex(); mutex.Dispose(); }
         }
     }
 
@@ -49,7 +71,7 @@ namespace SuyunCraft
         const string Root = "suyuncraft-instances";
         static void ValidId(string id)
         {
-            if (id == null || !Regex.IsMatch(id, @"\A[0-9a-f]{32}\z")) throw new InvalidDataException("无效的存档环境 ID");
+            if (id == null || !Regex.IsMatch(id, @"\A[0-9a-f]{32}\z")) throw new InvalidDataException("invalid save instance id");
         }
         static string InstanceDirectory(string root, string id)
         {
@@ -70,20 +92,20 @@ namespace SuyunCraft
                 byte[] buffer = new byte[4096]; int n;
                 while ((n = input.Read(buffer, 0, buffer.Length)) > 0)
                 {
-                    if (bytes.Length + n > 65536) throw new InvalidDataException("存档环境信息超过 64 KB");
+                    if (bytes.Length + n > 65536) throw new InvalidDataException("Save instanceinfoexceeds 64 KB");
                     bytes.Write(buffer, 0, n);
                 }
                 text = new UTF8Encoding(false, true).GetString(bytes.ToArray()).TrimStart('\uFEFF');
             }
             var json = Json.D(Json.Parse(text));
-            if (json == null || Json.L(json, "schema", 0) != 1 || Json.S(json, "id", "") != id) throw new InvalidDataException("存档环境信息损坏，已停止操作。");
+            if (json == null || Json.L(json, "schema", 0) != 1 || Json.S(json, "id", "") != id) throw new InvalidDataException("Save instanceinfocorrupted; operation stopped.");
             string name = Json.S(json, "name", ""), version = Json.S(json, "version", "");
             ValidName(name); FileSafety.Id(version);
             return new SaveInstance { Id = id, Name = name, Version = version };
         }
         static void ValidName(string name)
         {
-            if (string.IsNullOrWhiteSpace(name) || name.Length > 60 || name.Any(char.IsControl)) throw new ArgumentException("环境名称须为 1–60 个字符，不含控制字符。");
+            if (string.IsNullOrWhiteSpace(name) || name.Length > 60 || name.Any(char.IsControl)) throw new ArgumentException("Instance namemust be 1–60  characters, no control characters。");
         }
         public static List<SaveInstance> List(string root)
         {
@@ -91,7 +113,7 @@ namespace SuyunCraft
             var instances = new List<SaveInstance>();
             if (!Directory.Exists(directory)) return instances;
             var directories = Directory.EnumerateDirectories(directory).Take(1025).ToArray();
-            if (directories.Length > 1024) throw new InvalidDataException("存档环境超过 1024 个，请拆分游戏根目录。");
+            if (directories.Length > 1024) throw new InvalidDataException("Save instanceover 1024; split the game rootdirectory。");
             foreach (string path in directories)
             {
                 string id = Path.GetFileName(path);
@@ -100,7 +122,7 @@ namespace SuyunCraft
                 catch (Exception ex)
                 {
                     if (!(ex is IOException) && !(ex is InvalidDataException) && !(ex is ArgumentException) && !(ex is UnauthorizedAccessException) && !(ex is InvalidOperationException)) throw;
-                    instances.Add(new SaveInstance { Id = id, Name = "[损坏/不可读] " + id, Version = "?" });
+                    instances.Add(new SaveInstance { Id = id, Name = "[corrupted/unreadable] " + id, Version = "?" });
                 }
             }
             return instances.OrderBy(i => i.Name, StringComparer.OrdinalIgnoreCase).ToList();
@@ -112,12 +134,12 @@ namespace SuyunCraft
             if (!Directory.Exists(saves)) return;
             int worlds = 0;
             var directories = Directory.EnumerateDirectories(saves).Take(1025).ToArray();
-            if (directories.Length > 1024) throw new InvalidDataException("存档目录超过 1024 个，请分环境管理。");
+            if (directories.Length > 1024) throw new InvalidDataException("Over 1024 worlds; manage across instances。");
             foreach (string folder in directories)
             {
                 string safe = FileSafety.Under(dir, "saves/" + Path.GetFileName(folder));
                 if (!File.Exists(FileSafety.Under(safe, "level.dat"))) continue;
-                if (++worlds > 1 && singleWorld) throw new InvalidDataException("此隔离环境中存在多个存档。请把它们分别复制导入独立环境，再启动。");
+                if (++worlds > 1 && singleWorld) throw new InvalidDataException("Multiple worlds in one instance; import each separately, thenLaunch。");
                 string session = FileSafety.Under(safe, "session.lock");
                 if (checkRunning && File.Exists(session)) using (new FileStream(session, FileMode.Open, FileAccess.Read, FileShare.None)) { }
             }
@@ -132,13 +154,13 @@ namespace SuyunCraft
         }
         static void RejectLink(string path)
         {
-            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("复制不接受符号链接或目录联接：" + path);
+            if ((File.GetAttributes(path) & FileAttributes.ReparsePoint) != 0) throw new InvalidDataException("Copies reject symlinks and junctions：" + path);
         }
         static void CopyDirectory(string source, string target, CopyState state, bool world, int depth = 0)
         {
             state.Cancellation.ThrowIfCancellationRequested(); RejectLink(source);
-            if (++state.Directories > 200000) throw new InvalidDataException("副本超过 200000 个目录");
-            if (depth > 128) throw new InvalidDataException("目录嵌套超过 128 层");
+            if (++state.Directories > 200000) throw new InvalidDataException("Copy exceeds 200000 directories");
+            if (depth > 128) throw new InvalidDataException("directorynesting exceeds 128 levels");
             Directory.CreateDirectory(target);
             foreach (string entry in Directory.EnumerateFileSystemEntries(source))
             {
@@ -153,7 +175,7 @@ namespace SuyunCraft
         static void CopyFile(string source, string target, CopyState state)
         {
             RejectLink(source);
-            if (++state.Files > 200000) throw new InvalidDataException("副本超过 200000 个文件，请拆分存档环境。");
+            if (++state.Files > 200000) throw new InvalidDataException("Copy exceeds 200000 files; splitSave instance。");
             using (var input = new FileStream(source, FileMode.Open, FileAccess.Read, FileShare.Read))
             using (var output = new FileStream(target, FileMode.CreateNew, FileAccess.Write, FileShare.None))
             {
@@ -162,14 +184,14 @@ namespace SuyunCraft
                 {
                     state.Cancellation.ThrowIfCancellationRequested();
                     state.Bytes += n;
-                    if (state.Bytes > 256L * 1024 * 1024 * 1024) throw new InvalidDataException("副本超过 256 GB");
+                    if (state.Bytes > 256L * 1024 * 1024 * 1024) throw new InvalidDataException("Copy exceeds 256 GB");
                     output.Write(buffer, 0, n);
                 }
             }
-            if (state.Progress != null && state.Files % 25 == 0) state.Progress.Report("已复制 " + state.Files + " 个文件，" + state.Bytes / 1048576 + " MB…");
+            if (state.Progress != null && state.Files % 25 == 0) state.Progress.Report("Copied " + state.Files + "  file，" + state.Bytes / 1048576 + " MB…");
         }
 
-        // ---------- v1.10: 重命名 / 删除 / 导出 ----------
+        // ---------- v1.10: Rename / Delete / export ----------
         static void WriteInstanceJson(string root, string id, string name, string version)
         {
             ValidId(id); ValidName(name); FileSafety.Id(version);
@@ -177,84 +199,116 @@ namespace SuyunCraft
                 Json.Dump(new { schema = 1, id = id, name = name, version = version }));
         }
 
-        /// <summary>重命名环境（仅改写元数据，不触碰游戏文件）。</summary>
+        /// <summary>Renameinstance (metadata only, game files untouchedfile）。</summary>
         public static SaveInstance Rename(string root, string id, string newName)
         {
-            var instance = Load(root, id);          // 校验现有元数据可读
+            var instance = Load(root, id);          // Validate that existing metadata is readable
             newName = (newName ?? "").Trim();
             WriteInstanceJson(root, id, newName, instance.Version);
             return new SaveInstance { Id = id, Name = newName, Version = instance.Version };
         }
 
-        /// <summary>删除环境目录。拒绝删除当前配置正在使用的环境。</summary>
+        /// <summary>Deleteinstance directory. Refuses to delete the active instance。</summary>
         public static void Delete(Config cfg, string id, Func<bool> gameRunning)
         {
             ValidId(id);
-            if (cfg.SaveInstanceId == id) throw new InvalidOperationException("该环境正在被启动器使用，请先在主页切回「默认目录」再删除。");
-            if (gameRunning != null && gameRunning()) throw new InvalidOperationException("请先退出游戏，再删除存档环境。");
+            if (cfg.SaveInstanceId == id) throw new InvalidOperationException("This instance is active; switch back to the default directory firstDelete。");
+            if (gameRunning != null && gameRunning()) throw new InvalidOperationException("Exit the game before deleting a save instance.");
             string dir = InstanceDirectory(cfg.GameDir, id);
-            if (!Directory.Exists(dir)) throw new DirectoryNotFoundException("环境目录不存在：" + dir);
-            // 先占用环境锁，确认没有别的进程在用
+            if (!Directory.Exists(dir)) throw new DirectoryNotFoundException("Instance directory does not exist：" + dir);
+            // Hold an exclusive lock while removing the environment from the selectable namespace.
             string lockPath = FileSafety.Under(dir, "game/.suyuncraft-instance.lock");
-            if (File.Exists(lockPath))
-                using (new FileStream(lockPath, FileMode.Open, FileAccess.ReadWrite, FileShare.None)) { }
-            Directory.Delete(dir, true);
+            string retired = FileSafety.Under(cfg.GameDir, Root + "/.deleting-" + id + "-" + Guid.NewGuid().ToString("N"));
+            using (GameDirectories.EnterMaintenance(GameDirectory(cfg.GameDir, id)))
+            {
+                using (new FileStream(lockPath, FileMode.OpenOrCreate, FileAccess.ReadWrite, FileShare.None)) { }
+                CheckWorlds(GameDirectory(cfg.GameDir, id), false, true);
+                Directory.Move(dir, retired);
+            }
+            try { Directory.Delete(retired, true); }
+            catch (IOException ex) { throw new IOException("Instance removed from the list; some files were locked and remain in this directory：" + retired, ex); }
         }
 
-        /// <summary>导出环境为 zip（存到启动器数据目录 exports 下），返回 zip 路径。用于备份或迁移。</summary>
+        /// <summary>Export the instance as a zip into the launcher exports directory; returns the zip path。</summary>
         public static string Export(Config cfg, string id, CancellationToken cancellation, IProgress<string> progress = null)
         {
             ValidId(id);
             var instance = Load(cfg.GameDir, id);
+            cancellation.ThrowIfCancellationRequested();
             string dir = InstanceDirectory(cfg.GameDir, id);
-            if (!Directory.Exists(dir)) throw new DirectoryNotFoundException("环境目录不存在：" + dir);
+            if (!Directory.Exists(dir)) throw new DirectoryNotFoundException("Instance directory does not exist：" + dir);
             string exportRoot = Path.Combine(Config.BaseDir, "exports");
             Directory.CreateDirectory(exportRoot);
-            string fileName = "instance-" + id.Substring(0, 8) + "-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + ".zip";
+            string fileName = "instance-" + id.Substring(0, 8) + "-" + DateTime.Now.ToString("yyyyMMdd-HHmmss") + "-" + Guid.NewGuid().ToString("N") + ".zip";
             string zipPath = Path.Combine(exportRoot, fileName);
             string temp = zipPath + ".part";
             long files = 0;
+            var snapshot = cfg.Snapshot(); snapshot.SaveInstanceId = id;
+            var worldLocks = new List<FileStream>();
             try
             {
+                using (GameDirectories.Acquire(snapshot, instance.Version, true))
+                {
+                string saves = FileSafety.Under(GameDirectory(cfg.GameDir, id), "saves");
+                if (Directory.Exists(saves))
+                    foreach (string world in Directory.EnumerateDirectories(saves))
+                    {
+                        cancellation.ThrowIfCancellationRequested();
+                        string session = FileSafety.Under(saves, Path.GetFileName(world) + "/session.lock");
+                        if (File.Exists(session)) worldLocks.Add(new FileStream(session, FileMode.Open, FileAccess.Read, FileShare.None));
+                    }
                 using (var output = File.Create(temp))
                 using (var archive = new System.IO.Compression.ZipArchive(output, System.IO.Compression.ZipArchiveMode.Create))
                 {
                     var state = new CopyState { Cancellation = cancellation };
                     AddDirectoryToArchive(archive, dir, "instance/", state, progress, ref files);
                 }
-                if (File.Exists(zipPath)) File.Delete(zipPath);
+                cancellation.ThrowIfCancellationRequested();
                 File.Move(temp, zipPath);
+                }
             }
             finally
             {
+                foreach (var worldLock in worldLocks) worldLock.Dispose();
                 if (File.Exists(temp)) try { File.Delete(temp); } catch { }
             }
             return zipPath;
         }
 
-        static void AddDirectoryToArchive(System.IO.Compression.ZipArchive archive, string source, string prefix, CopyState state, IProgress<string> progress, ref long files)
+        static void AddDirectoryToArchive(System.IO.Compression.ZipArchive archive, string source, string prefix, CopyState state, IProgress<string> progress, ref long files, int depth = 0)
         {
             state.Cancellation.ThrowIfCancellationRequested();
             RejectLink(source);
+            if (++state.Directories > 200000 || depth > 128) throw new InvalidDataException("Backup has too many directories or nesting exceeds 128");
             foreach (string entry in Directory.EnumerateFileSystemEntries(source))
             {
                 state.Cancellation.ThrowIfCancellationRequested();
                 RejectLink(entry);
                 string name = Path.GetFileName(entry);
-                if (name.Equals(".suyuncraft-instance.lock", StringComparison.OrdinalIgnoreCase)) continue;   // 运行锁不进备份
+                if (name.Equals(".suyuncraft-instance.lock", StringComparison.OrdinalIgnoreCase) || name.Equals("session.lock", StringComparison.OrdinalIgnoreCase)) continue;
                 string entryName = prefix + name;
                 if (Directory.Exists(entry))
                 {
-                    AddDirectoryToArchive(archive, entry, entryName + "/", state, progress, ref files);
+                    archive.CreateEntry(entryName + "/"); // Preserve empty mod/config/world directories.
+                    AddDirectoryToArchive(archive, entry, entryName + "/", state, progress, ref files, depth + 1);
                 }
                 else
                 {
                     var zipEntry = archive.CreateEntry(entryName, System.IO.Compression.CompressionLevel.Optimal);
                     using (var input = new FileStream(entry, FileMode.Open, FileAccess.Read, FileShare.Read))
                     using (var target = zipEntry.Open())
-                        input.CopyTo(target);
-                    files++;
-                    if (progress != null && files % 50 == 0) progress.Report("已导出 " + files + " 个文件…");
+                    {
+                        byte[] buffer = new byte[65536]; int count;
+                        while ((count = input.Read(buffer, 0, buffer.Length)) > 0)
+                        {
+                            state.Cancellation.ThrowIfCancellationRequested();
+                            state.Bytes += count;
+                            if (state.Bytes > 256L * 1024 * 1024 * 1024) throw new InvalidDataException("Backup exceeds 256 GB");
+                            target.Write(buffer, 0, count);
+                        }
+                    }
+                    if (++files > 200000) throw new InvalidDataException("Backup exceeds 200000  file");
+                    if (progress != null && files % 50 == 0) progress.Report("Exported " + files + "  file…");
                 }
             }
         }
@@ -290,9 +344,9 @@ namespace SuyunCraft
                     string aiConfig = FileSafety.Under(game, "config/suyuncraft-ai.json");
                     if (File.Exists(aiConfig))
                     {
-                        if (new FileInfo(aiConfig).Length > 65536) throw new InvalidDataException("AI 配置超过 64 KB");
+                        if (new FileInfo(aiConfig).Length > 65536) throw new InvalidDataException("AI config exceeds 64 KB");
                         var json = Json.D(Json.Parse(File.ReadAllText(aiConfig, Encoding.UTF8)));
-                        if (json == null) throw new InvalidDataException("AI 配置不是对象");
+                        if (json == null) throw new InvalidDataException("AI config is not an object");
                         byte[] token = new byte[32];
                         using (var rng = System.Security.Cryptography.RandomNumberGenerator.Create()) rng.GetBytes(token);
                         json["token"] = BitConverter.ToString(token).Replace("-", "").ToLowerInvariant();
@@ -302,10 +356,10 @@ namespace SuyunCraft
                 if (!string.IsNullOrEmpty(worldDirectory))
                 {
                     string source = Path.GetFullPath(worldDirectory); RejectLink(source);
-                    if (!File.Exists(FileSafety.Under(source, "level.dat"))) throw new InvalidDataException("请选择包含 level.dat 的存档文件夹。");
+                    if (!File.Exists(FileSafety.Under(source, "level.dat"))) throw new InvalidDataException("Pick a world folder containing level.dat。");
                     string session = FileSafety.Under(source, "session.lock");
                     if (File.Exists(session)) worldLock = new FileStream(session, FileMode.Open, FileAccess.Read, FileShare.None);
-                    if (progress != null) progress.Report("正在复制存档，保留原件…");
+                    if (progress != null) progress.Report("Copying the world, original kept…");
                     CopyDirectory(source, FileSafety.Under(game, "saves/world"), state, true);
                 }
                 foreach (string folder in new[] { "mods", "config", "saves", "resourcepacks" }) Directory.CreateDirectory(FileSafety.Under(game, folder));

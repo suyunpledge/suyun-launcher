@@ -20,7 +20,7 @@ namespace SuyunCraft
         [DllImport("uxtheme.dll", CharSet = CharSet.Unicode)]
         static extern int SetWindowTheme(IntPtr hWnd, string subApp, string subId);
 
-        // uxtheme 未公开入口：把系统控件（滚动条、下拉列表等）切到深色渲染
+        // uxtheme Undocumented entry: switches system controls to dark rendering
         [DllImport("uxtheme.dll", EntryPoint = "#133")]
         static extern PreferredAppMode SetPreferredAppMode(PreferredAppMode mode);
 
@@ -40,8 +40,8 @@ namespace SuyunCraft
         const uint GW_HWNDNEXT = 2;
 
         /// <summary>
-        /// 进程级深色模式。必须在创建任何窗口之前调用，
-        /// 否则系统滚动条、下拉列表等仍会按浅色主题绘制。
+        /// Process-wide dark mode. Must be called before any window is created,
+        /// otherwise system scrollbars and dropdowns render light。
         /// </summary>
         public static void EnableForProcess()
         {
@@ -53,7 +53,7 @@ namespace SuyunCraft
             catch { }
         }
 
-        // Win10 1809+ 生效，旧系统自动忽略
+        // Win10 1809+ takes effect; older systems ignore it
         public static void Apply(Control c, string themeList)
         {
             try
@@ -65,7 +65,7 @@ namespace SuyunCraft
             catch { }
         }
 
-        /// <summary>同时套用多个主题（依次尝试，失败不影响其它控件）。</summary>
+        /// <summary>Apply multiple themes (each tried; failures do not affect others)）。</summary>
         public static void Apply(Control c, params string[] themes)
         {
             if (themes == null) return;
@@ -82,13 +82,13 @@ namespace SuyunCraft
             }
         }
 
-        /// <summary>允许指定窗口使用系统深色渲染（滚动条、下拉列表等）。</summary>
+        /// <summary>Lets a window use system dark rendering (scrollbars, dropdowns)）。</summary>
         public static void AllowDark(IntPtr hwnd)
         {
             try { AllowDarkModeForWindow(hwnd, true); } catch { }
         }
 
-        /// <summary>把容器自带的滚动条也套上深色主题（AutoScroll 面板）。</summary>
+        /// <summary>Theme container scrollbars too (AutoScroll panels)）。</summary>
         public static void ApplyScrollBars(Control c)
         {
             try
@@ -124,7 +124,7 @@ namespace SuyunCraft
         }
     }
 
-    /// <summary>窗口外观：深色标题栏、圆角边框与阴影。</summary>
+    /// <summary>Window chrome: dark title bar, rounded border and shadow。</summary>
     static class WindowChrome
     {
         [DllImport("dwmapi.dll")]
@@ -151,7 +151,7 @@ namespace SuyunCraft
         }
     }
 
-    /// <summary>圆角进度条，带渐变填充与百分比。</summary>
+    /// <summary>Rounded progress bar with gradient fill and percentage。</summary>
     class ThemeProgressBar : Control
     {
         int value;
@@ -164,7 +164,7 @@ namespace SuyunCraft
             set { this.value = Math.Max(0, Math.Min(100, value)); Invalidate(); }
         }
 
-        /// <summary>下载进行中时显示流动的高光。</summary>
+        /// <summary>DownloadA flowing highlight while active。</summary>
         public bool Pulse
         {
             get { return pulse; }
@@ -201,42 +201,62 @@ namespace SuyunCraft
             Graphics g = e.Graphics;
             UiKit.ClearBackground(g, this);
             g.SmoothingMode = SmoothingMode.AntiAlias;
+            g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
             Rectangle bounds = new Rectangle(0, 0, Width, Height);
-            UiKit.FillRound(g, bounds, Height / 2, Theme.Field);
-            UiKit.StrokeRound(g, bounds, Height / 2, Theme.Border, 1f);
+            int rad = Ui.Px(3);
+
+            // groove
+            UiKit.FillRound(g, bounds, rad, Theme.FieldDeep);
+            UiKit.Inset(g, bounds, rad, UiKit.Alpha(System.Drawing.Color.Black, 150));
+            UiKit.StrokeRound(g, bounds, rad, Theme.Border, 1f);
 
             if (value > 0)
             {
                 int fillWidth = (int)((long)(Width - 2) * value / 100);
                 if (fillWidth > 2)
                 {
-                    Rectangle fill = new Rectangle(1, 1, fillWidth, Height - 2);
-                    UiKit.FillRoundGradient(g, fill, Height / 2, Theme.BlueLight, Theme.Blue, false);
+                    Rectangle fill = new Rectangle(1, 1, fillWidth, Math.Max(2, Height - 2));
+                    GraphicsState state = g.Save();
+                    using (GraphicsPath p = UiKit.RoundPath(fill, rad))
+                    using (Region clip = new Region(p))
+                        g.SetClip(clip, CombineMode.Intersect);
+
+                    using (LinearGradientBrush b = new LinearGradientBrush(fill, Theme.BlueLight, Theme.BlueDark, 90f))
+                        g.FillRectangle(b, fill);
+
+                    // Segmented ticks: XP-bar-like blockiness
+                    using (Pen tick = new Pen(UiKit.Alpha(System.Drawing.Color.Black, 62), 1f))
+                    {
+                        for (int x = fill.X + Ui.Px(7); x < fill.Right; x += Ui.Px(7))
+                            g.DrawLine(tick, x, fill.Top, x, fill.Bottom);
+                    }
+                    using (Pen hi = new Pen(UiKit.Alpha(System.Drawing.Color.White, 76), 1f))
+                        g.DrawLine(hi, fill.Left, fill.Top + 0.5f, fill.Right, fill.Top + 0.5f);
+
                     if (pulse)
                     {
-                        int phase = (int)(System.Environment.TickCount % 1400) / 1400;
-                        int band = Math.Max(18, Width / 6);
-                        int x = (int)((Width + band) * phase) - band;
-                        Rectangle shine = new Rectangle(x, 1, band, Height - 2);
-                        using (GraphicsPath p = UiKit.RoundPath(fill, Height / 2))
-                        {
-                            g.SetClip(p);
-                            using (LinearGradientBrush b = new LinearGradientBrush(
-                                new Rectangle(shine.X, shine.Y, Math.Max(1, shine.Width), Math.Max(1, shine.Height)),
-                                Color.FromArgb(0, 255, 255, 255), Color.FromArgb(90, 255, 255, 255), 0f))
-                                g.FillRectangle(b, shine);
-                            g.ResetClip();
-                        }
+                        int phase = (int)(System.Environment.TickCount % 1200) * 100 / 1200;
+                        int band = Math.Max(Ui.Px(14), Width / 5);
+                        int x = (int)((long)(Width + band) * phase / 100) - band;
+                        Rectangle shine = new Rectangle(x, fill.Top, band, fill.Height);
+                        using (LinearGradientBrush lb = new LinearGradientBrush(shine,
+                            System.Drawing.Color.FromArgb(0, 255, 255, 255),
+                            System.Drawing.Color.FromArgb(80, 255, 255, 255), 0f))
+                            g.FillRectangle(lb, shine);
                     }
+                    g.Restore(state);
                 }
             }
 
             string pct = value + "%";
-            Size size = TextRenderer.MeasureText(pct, Theme.UiBold);
             Rectangle textRect = new Rectangle(0, 0, Width, Height);
-            TextRenderer.DrawText(g, pct, Theme.UiBold, textRect, value > 0 ? System.Drawing.Color.White : Theme.Muted,
-                TextFormatFlags.NoPrefix | TextFormatFlags.HorizontalCenter | TextFormatFlags.VerticalCenter
-                | TextFormatFlags.SingleLine);
+            TextFormatFlags flags = TextFormatFlags.NoPrefix | TextFormatFlags.HorizontalCenter
+                | TextFormatFlags.VerticalCenter | TextFormatFlags.SingleLine;
+            if (value > 0)
+                UiKit.DrawTextShadow(g, pct, Theme.UiBold, textRect, System.Drawing.Color.White, flags,
+                    UiKit.Alpha(System.Drawing.Color.Black, 120), 1);
+            else
+                TextRenderer.DrawText(g, pct, Theme.UiBold, textRect, Theme.Muted, flags);
         }
     }
 }

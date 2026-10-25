@@ -59,7 +59,7 @@ namespace SuyunCraft
                         item.Append(value[index++]);
                     }
                 }
-                if (quoted) throw new ArgumentException("参数中存在未闭合的双引号");
+                if (quoted) throw new ArgumentException("Unterminated quote in arguments");
                 result.Add(item.ToString());
             }
             return result;

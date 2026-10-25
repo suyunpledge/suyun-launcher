@@ -40,6 +40,15 @@ namespace SuyunCraft
         [STAThread]
         static int Main(string[] args)
         {
+            if (args.Length == 1 && args[0] == "-version")
+            {
+                string dir = AppDomain.CurrentDomain.BaseDirectory;
+                string mode = File.ReadAllText(Path.Combine(dir, "probe-mode.txt"));
+                File.AppendAllText(Path.Combine(dir, "probe-calls.txt"), "probe\r\n");
+                if (mode == "hang") Thread.Sleep(30000);
+                Console.Error.WriteLine(mode == "bad" ? "invalid" : "openjdk version \"" + mode + ".0.1\"");
+                return 0;
+            }
             if (args.Length > 0 && args[0] == "--echo")
             {
                 foreach (string arg in args.Skip(1)) Console.WriteLine(Convert.ToBase64String(Encoding.UTF8.GetBytes(arg)));
@@ -111,7 +120,7 @@ namespace SuyunCraft
                 try
                 {
                     var isolatedConfig = ModManagementTests.Fixture(Path.Combine(root, "ui-home-instances"));
-                    var environment = SaveIsolation.Create(isolatedConfig, "custom-profile", "生存测试", null, false, CancellationToken.None);
+                    var environment = SaveIsolation.Create(isolatedConfig, "custom-profile", "survival tests", null, false, CancellationToken.None);
                     configField.SetValue(form, isolatedConfig);
                     combo.Items.Clear(); combo.Items.Add(new LocalVer { Id = "custom-profile", Loader = "fabric" }); combo.Items.Add(new LocalVer { Id = "1.21.1", Loader = "vanilla" }); combo.SelectedIndex = 1;
                     var refreshInstances = typeof(MainForm).GetMethod("RefreshSaveInstances", System.Reflection.BindingFlags.Instance | System.Reflection.BindingFlags.NonPublic);
@@ -139,7 +148,7 @@ namespace SuyunCraft
                 var watch = Stopwatch.StartNew();
                 while (diag.Text.Length == 0 && watch.ElapsedMilliseconds < 5000) { System.Windows.Forms.Application.DoEvents(); Thread.Sleep(5); }
                 Check(modList.Items.Count == 1 && modList.Items[0].SubItems[1].Text == "third_party", "Mod manager asynchronously displays third-party metadata");
-                Check(diag.Text.Contains("启用 1"), "Mod manager renders compatibility diagnostic summary");
+                Check(diag.Text.Contains("Enabled 1"), "Mod manager renders compatibility diagnostic summary");
                 using (var image = new System.Drawing.Bitmap(dialog.Width, dialog.Height))
                 {
                     dialog.DrawToBitmap(image, new System.Drawing.Rectangle(0, 0, dialog.Width, dialog.Height));
@@ -147,21 +156,21 @@ namespace SuyunCraft
                 }
             }
             var saveCfg = ModManagementTests.Fixture(Path.Combine(root, "ui-save-manager"));
-            var saveInstance = SaveIsolation.Create(saveCfg, "custom-profile", "独立存档", null, false, CancellationToken.None);
+            var saveInstance = SaveIsolation.Create(saveCfg, "custom-profile", "isolated saves", null, false, CancellationToken.None);
             using (var dialog = new SaveInstanceForm(saveCfg, "custom-profile", () => false))
             {
                 dialog.StartPosition = System.Windows.Forms.FormStartPosition.Manual; dialog.Location = new System.Drawing.Point(-20000, -20000); dialog.ShowInTaskbar = false; dialog.Show();
                 var instances = (System.Windows.Forms.ListView)dialog.Controls.Find("instanceList", true).Single();
                 var watch = Stopwatch.StartNew();
                 while (instances.Items.Count == 0 && watch.ElapsedMilliseconds < 5000) { System.Windows.Forms.Application.DoEvents(); Thread.Sleep(5); }
-                Check(instances.Items.Count == 1 && instances.Items[0].Text == "独立存档", "Save manager asynchronously lists isolated environments");
+                Check(instances.Items.Count == 1 && instances.Items[0].Text == "isolated saves", "Save manager asynchronously lists isolated environments");
                 using (var image = new System.Drawing.Bitmap(dialog.Width, dialog.Height))
                 {
                     dialog.DrawToBitmap(image, new System.Drawing.Rectangle(0, 0, dialog.Width, dialog.Height));
                     image.Save(Path.Combine(AppDomain.CurrentDomain.BaseDirectory, "ui-save-manager.png"));
                 }
                 instances.Items[0].Selected = true;
-                ((System.Windows.Forms.Button)dialog.Controls.Find("使用所选环境", true).Single()).PerformClick();
+                ((System.Windows.Forms.Button)dialog.Controls.Find("Use selected", true).Single()).PerformClick();
                 Check(dialog.SelectedInstance != null && dialog.SelectedInstance.Id == saveInstance.Id && dialog.DialogResult == System.Windows.Forms.DialogResult.OK, "Use-selected environment action returns selection without busy-close deadlock");
             }
             using (var dialog = new SaveInstanceForm(saveCfg, "custom-profile", () => false))
@@ -170,8 +179,8 @@ namespace SuyunCraft
                 var status = (System.Windows.Forms.Label)dialog.Controls.Find("instanceStatus", true).Single();
                 var watch = Stopwatch.StartNew();
                 while (status.Text.Length == 0 && watch.ElapsedMilliseconds < 5000) { System.Windows.Forms.Application.DoEvents(); Thread.Sleep(5); }
-                ((System.Windows.Forms.TextBox)dialog.Controls.Find("instanceName", true).Single()).Text = "通过界面创建";
-                ((System.Windows.Forms.Button)dialog.Controls.Find("新建空环境", true).Single()).PerformClick();
+                ((System.Windows.Forms.TextBox)dialog.Controls.Find("instanceName", true).Single()).Text = "created via the UI";
+                ((System.Windows.Forms.Button)dialog.Controls.Find("New empty instance", true).Single()).PerformClick();
                 watch.Restart();
                 while (dialog.SelectedInstance == null && watch.ElapsedMilliseconds < 5000) { System.Windows.Forms.Application.DoEvents(); Thread.Sleep(5); }
                 Check(dialog.SelectedInstance != null && Directory.Exists(SaveIsolation.GameDirectory(saveCfg.GameDir, dialog.SelectedInstance.Id)) && dialog.DialogResult == System.Windows.Forms.DialogResult.OK, "Create environment UI completes copy and returns a usable environment");
@@ -188,6 +197,7 @@ namespace SuyunCraft
             ModResolutionRegressionTests.Run(Path.Combine(root, "modres"), Check);
             VerifyStoreRegressionTests.Run(Path.Combine(root, "verifystore"), Check);
             SaveMgmtRegressionTests.Run(Path.Combine(root, "savemgmt"), Check);
+            StartupReliabilityTests.Run(Path.Combine(root, "startup-reliability"), Check);
             string configPath = Path.Combine(root, "config.json");
             var config = new Config { AutoMemory = false, VersionIsolation = true, CaptureGameLog = false,
                 GameDir = root, MemoryGb = 6, WindowWidth = 1234, WindowHeight = 777 };
@@ -223,7 +233,7 @@ namespace SuyunCraft
             Reject(() => FileSafety.ExtractZip(maliciousZip, Path.Combine(root, "unpacked")), "ZIP traversal rejected");
             Check(!File.Exists(Path.Combine(root, "escaped.txt")), "ZIP cannot overwrite outside its destination");
 
-            string[] arguments = { "", "simple", "with space", "tab\there", "引号中文", "a\"b", @"C:\space here\", "\\\"", "--name", "-Dfile=x\"y" };
+            string[] arguments = { "", "simple", "with space", "tab\there", "quoted Chinese", "a\"b", @"C:\space here\", "\\\"", "--name", "-Dfile=x\"y" };
             var info = new ProcessStartInfo(System.Reflection.Assembly.GetExecutingAssembly().Location,
                 CommandLine.Join(new[] { "--echo" }.Concat(arguments))) { UseShellExecute = false, CreateNoWindow = true, RedirectStandardOutput = true };
             using (var process = Process.Start(info))

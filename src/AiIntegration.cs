@@ -20,7 +20,7 @@ namespace SuyunCraft
             var metadata = LaunchPlanner.LoadMerged(cfg.GameDir, version);
             string mc = Json.S(metadata, "jar", version);
             if (new MinecraftLoaderDetector().Detect(metadata) != "fabric" || mc != "1.21.1")
-                throw new InvalidOperationException("AI 模组目前要求 Minecraft 1.21.1 + Fabric；请在下载页安装并选择对应版本。");
+                throw new InvalidOperationException("AI modcurrently requires Minecraft 1.21.1 + Fabric；Install and select a matching version on the Download page.");
             return GameDirectories.Resolve(cfg, version);
         }
 
@@ -33,12 +33,12 @@ namespace SuyunCraft
             string root = GameDirectory(cfg, version); bundle = bundle ?? BundleDirectory();
             string jar = Path.Combine(bundle, "dist", "suyuncraft-ai-0.5.0.jar");
             string api = Path.Combine(bundle, "dist", "fabric-api-0.106.0+1.21.1.jar");
-            if (!File.Exists(jar) || !File.Exists(api)) throw new FileNotFoundException("AI 模组尚未构建，请先运行 ai-mod/build-mod.ps1。");
+            if (!File.Exists(jar) || !File.Exists(api)) throw new FileNotFoundException("AI modnot built yet; run first:  ai-mod/build-mod.ps1。");
             if (ModManagement.ReadFile(jar, Path.GetFileName(jar)).Id != "suyuncraft_ai" || ModManagement.ReadFile(api, Path.GetFileName(api)).Id != "fabric-api")
-                throw new InvalidDataException("AI 安装包中的模组 ID 不正确。");
+                throw new InvalidDataException("AI Install contains an incorrect mod ID.");
             string destination = FileSafety.Under(root, "mods/suyuncraft-ai.jar");
             if (File.Exists(destination) && ModManagement.ReadFile(destination, "suyuncraft-ai.jar").Id != "suyuncraft_ai")
-                throw new InvalidDataException("suyuncraft-ai.jar 已被其他或损坏的模组占用，请先在模组管理中停用。");
+                throw new InvalidDataException("suyuncraft-ai.jar  is taken by another or corrupted mod; disable it in the mod manager first:Disabled。");
             Directory.CreateDirectory(Path.GetDirectoryName(destination));
             // Quarantine previous versioned files to avoid duplicate mod IDs on upgrade.
             var migrated = new System.Collections.Generic.List<System.Collections.Generic.KeyValuePair<string, string>>();
@@ -67,7 +67,7 @@ namespace SuyunCraft
             if (!hasApi)
             {
                 string apiDestination = FileSafety.Under(root, "mods/" + Path.GetFileName(api));
-                if (File.Exists(apiDestination)) throw new InvalidDataException("Fabric API 文件名已被占用，请先停用该文件。");
+                if (File.Exists(apiDestination)) throw new InvalidDataException("Fabric API file name is taken; disable that file first:file。");
                 FileSafety.WriteViaTemp(apiDestination, ".tmp", t => File.Copy(api, t));
             }
             string config = FileSafety.Under(root, "config/suyuncraft-ai.json");

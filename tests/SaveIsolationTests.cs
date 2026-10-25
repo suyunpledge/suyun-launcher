@@ -14,7 +14,7 @@ namespace SuyunCraft
         sealed class CancelDuringCopy : IProgress<string>
         {
             public readonly CancellationTokenSource Source = new CancellationTokenSource();
-            public void Report(string text) { if (text.StartsWith("已复制")) Source.Cancel(); }
+            public void Report(string text) { if (text.StartsWith("Copied")) Source.Cancel(); }
         }
         public static void Run(string root, Action<bool, string> check)
         {
@@ -31,8 +31,8 @@ namespace SuyunCraft
             Write(world, "level.dat", "world-data"); Write(world, "region/r.0.0.mca", "region-data");
             Write(world, "datapacks/sample/pack.mcmeta", "pack-data"); Write(world, "session.lock", "unlocked-session");
             Write(source, "saves/other/level.dat", "other-world");
-            var a = SaveIsolation.Create(cfg, "custom-profile", "生存 A", world, true, CancellationToken.None);
-            var b = SaveIsolation.Create(cfg, "custom-profile", "生存 B", world, true, CancellationToken.None);
+            var a = SaveIsolation.Create(cfg, "custom-profile", "survival A", world, true, CancellationToken.None);
+            var b = SaveIsolation.Create(cfg, "custom-profile", "survival B", world, true, CancellationToken.None);
             string dirA = SaveIsolation.GameDirectory(cfg.GameDir, a.Id), dirB = SaveIsolation.GameDirectory(cfg.GameDir, b.Id);
             check(a.Id != b.Id && dirA != dirB && SaveIsolation.List(cfg.GameDir).Count == 2, "Two worlds on the same version receive separate immutable environment IDs");
             check(File.Exists(Path.Combine(world, "level.dat")) && Same(Path.Combine(world, "region/r.0.0.mca"), Path.Combine(dirA, "saves/world/region/r.0.0.mca")), "World import copies complete region data and preserves source");
@@ -83,21 +83,21 @@ namespace SuyunCraft
                 check(Reject(() => GameDirectories.Acquire(cfg, "custom-profile")), "World session lock rejects mutation even without a launcher lock");
             Write(dirA, "saves/second/level.dat", "second");
             check(Reject(() => GameDirectories.Acquire(cfg, "custom-profile")), "Multiple worlds in one isolated environment require splitting before launch");
-            var split = SaveIsolation.Create(cfg, "custom-profile", "拆分副本", Path.Combine(dirA, "saves/second"), true, CancellationToken.None);
+            var split = SaveIsolation.Create(cfg, "custom-profile", "split the copy", Path.Combine(dirA, "saves/second"), true, CancellationToken.None);
             check(File.Exists(Path.Combine(SaveIsolation.GameDirectory(cfg.GameDir, split.Id), "mods/third-party.jar.disabled")), "Splitting a multi-world environment can preserve its mod configuration");
             cfg.SaveInstanceId = "";
-            var empty = SaveIsolation.Create(cfg, "custom-profile", "纯净环境", null, false, CancellationToken.None);
+            var empty = SaveIsolation.Create(cfg, "custom-profile", "clean instance", null, false, CancellationToken.None);
             string clean = SaveIsolation.GameDirectory(cfg.GameDir, empty.Id);
             check(Directory.Exists(Path.Combine(clean, "saves")) && !Directory.EnumerateFiles(Path.Combine(clean, "mods")).Any() && !Directory.EnumerateFiles(Path.Combine(clean, "config")).Any(), "Clean environment starts without source mods, config or worlds");
             int before = SaveIsolation.List(cfg.GameDir).Count;
-            check(Reject(() => SaveIsolation.Create(cfg, "custom-profile", "无效导入", source, true, CancellationToken.None)) && SaveIsolation.List(cfg.GameDir).Count == before, "Failed import never publishes an incomplete environment");
+            check(Reject(() => SaveIsolation.Create(cfg, "custom-profile", "invalid import", source, true, CancellationToken.None)) && SaveIsolation.List(cfg.GameDir).Count == before, "Failed import never publishes an incomplete environment");
             check(!Directory.EnumerateDirectories(Path.Combine(cfg.GameDir, "suyuncraft-instances"), ".creating-*").Any(), "Failed import removes only its generated staging directory");
-            check(Reject(() => SaveIsolation.Create(cfg, "custom-profile", "取消", world, true, new CancellationToken(true))) && SaveIsolation.List(cfg.GameDir).Count == before, "Cancelled copy does not publish a partial environment");
+            check(Reject(() => SaveIsolation.Create(cfg, "custom-profile", "Cancel", world, true, new CancellationToken(true))) && SaveIsolation.List(cfg.GameDir).Count == before, "Cancelled copy does not publish a partial environment");
             using (new FileStream(Path.Combine(world, "session.lock"), FileMode.Open, FileAccess.ReadWrite, FileShare.None))
-                check(Reject(() => SaveIsolation.Create(cfg, "custom-profile", "使用中的存档", world, false, CancellationToken.None)) && SaveIsolation.List(cfg.GameDir).Count == before, "Import refuses a world held open by another process");
+                check(Reject(() => SaveIsolation.Create(cfg, "custom-profile", "active worlds", world, false, CancellationToken.None)) && SaveIsolation.List(cfg.GameDir).Count == before, "Import refuses a world held open by another process");
             for (int n = 0; n < 35; n++) Write(world, "region/extra-" + n + ".mca", "original");
             var cancel = new CancelDuringCopy();
-            check(Reject(() => SaveIsolation.Create(cfg, "custom-profile", "中途取消", world, false, cancel.Source.Token, cancel)) && cancel.Source.IsCancellationRequested && SaveIsolation.List(cfg.GameDir).Count == before && !Directory.EnumerateDirectories(Path.Combine(cfg.GameDir, "suyuncraft-instances"), ".creating-*").Any(), "Cancellation during actual file copy removes staged data and publishes nothing");
+            check(Reject(() => SaveIsolation.Create(cfg, "custom-profile", "midwayCancel", world, false, cancel.Source.Token, cancel)) && cancel.Source.IsCancellationRequested && SaveIsolation.List(cfg.GameDir).Count == before && !Directory.EnumerateDirectories(Path.Combine(cfg.GameDir, "suyuncraft-instances"), ".creating-*").Any(), "Cancellation during actual file copy removes staged data and publishes nothing");
             cancel.Source.Dispose();
             check(File.ReadAllText(Path.Combine(world, "region/extra-34.mca")) == "original", "Mid-copy cancellation leaves all original world files intact");
             cfg.SaveInstanceId = "../escape";

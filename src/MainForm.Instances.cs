@@ -19,13 +19,13 @@ namespace SuyunCraft
             try
             {
                 cmbSaveInstance.Items.Clear();
-                cmbSaveInstance.Items.Add(new SaveInstance { Id = "", Name = "默认目录（未按存档隔离）", Version = "" });
+                cmbSaveInstance.Items.Add(new SaveInstance { Id = "", Name = "Default directory (no save isolation)", Version = "" });
                 try { foreach (var item in SaveIsolation.List(cfg.GameDir)) cmbSaveInstance.Items.Add(item); }
-                catch (Exception ex) { statusBar.Text = "读取存档环境失败：" + ex.Message; }
+                catch (Exception ex) { statusBar.Text = "Failed to read save instances: " + ex.Message; }
                 var selected = cmbSaveInstance.Items.Cast<SaveInstance>().FirstOrDefault(i => i.Id == selectedId);
                 if (selected == null && !string.IsNullOrEmpty(selectedId))
                 {
-                    selected = new SaveInstance { Id = selectedId, Name = "[环境丢失，请检查] " + selectedId, Version = "?" };
+                    selected = new SaveInstance { Id = selectedId, Name = "[Instance directory missing; please check] " + selectedId, Version = "?" };
                     cmbSaveInstance.Items.Add(selected); // Never silently fall back to the shared world directory.
                 }
                 cmbSaveInstance.SelectedItem = selected ?? cmbSaveInstance.Items[0];
@@ -33,7 +33,8 @@ namespace SuyunCraft
                 chkIsolation.Enabled = string.IsNullOrEmpty(cfg.SaveInstanceId);
             }
             finally { refreshingSaveInstances = false; }
-            UpdateInstanceControls();
+            if (!string.IsNullOrEmpty(cfg.SaveInstanceId)) SaveInstanceChanged();
+            else UpdateInstanceControls();
         }
         void SaveInstanceChanged()
         {
@@ -45,9 +46,9 @@ namespace SuyunCraft
             {
                 var item = cmbVersion.Items.Cast<object>().OfType<LocalVer>().FirstOrDefault(v => v.Id == instance.Version);
                 if (item != null) { cmbVersion.SelectedItem = item; cfg.LastVersion = instance.Version; }
-                statusBar.Text = item == null ? "存档绑定版本未安装或信息损坏，请先检查；不会回退默认目录。" : "已选择独立存档环境：" + instance.Name;
+                statusBar.Text = item == null ? "The instance version is missing or corrupted; refusing to fall backdirectory。" : "Selected isolated instance: Save instance：" + instance.Name;
             }
-            else statusBar.Text = "已选择默认目录，按主页版本隔离开关运行。";
+            else statusBar.Text = "Default directory selected; the Home isolation toggle applies。";
             UpdateInstanceControls();
         }
         void UpdateInstanceControls()
@@ -72,7 +73,7 @@ namespace SuyunCraft
                     else RefreshSaveInstances();
                 }
             }
-            catch (Exception ex) { MessageBox.Show(ex.Message, "存档隔离"); }
+            catch (Exception ex) { MessageBox.Show(ex.Message, "Save isolation"); }
         }
     }
 }

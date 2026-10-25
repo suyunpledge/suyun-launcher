@@ -1,4 +1,4 @@
-// P1 依赖解析引擎的离线回归（加入 BackendRegressionTests.Run 的调用链）
+// P1 dependencyResolution engine offline regression（wired into BackendRegressionTests.Run)
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -46,7 +46,7 @@ namespace SuyunCraft
         {
             Root = root;
 
-            // ---- SemVer 与比较运算 ----
+            // ---- SemVer and comparison operators ----
             string semver = Dir("semver");
             Jar(semver, "lib", ModJson("lib", "1.2.3", null));
             Jar(semver, "need-old", ModJson("need-old", "1", "{\"lib\":\"<1.2.0\"}"));
@@ -58,7 +58,7 @@ namespace SuyunCraft
             Jar(ge, "ok", ModJson("ok", "1", "{\"lib\":\">=1.0.0\"}"));
             check(!Scan(ge).Any(i => i.Code.StartsWith("MOD_DEPENDENCY", StringComparison.Ordinal)), "In-range dependency passes silently");
 
-            // ---- AND 条件与通配 ----
+            // ---- AND conditions and wildcards ----
             string andRange = Dir("andrange");
             Jar(andRange, "lib", ModJson("lib", "1.16.5", null));
             Jar(andRange, "narrow", ModJson("narrow", "1", "{\"lib\":\">=1.16 <1.17\"}"));
@@ -77,7 +77,7 @@ namespace SuyunCraft
             Jar(orMiss, "pick", ModJson("pick", "1", "{\"lib\":[\">=2.0\", \"0.11.x\"]}"));
             check(Scan(orMiss).Any(i => i.Code == "MOD_DEPENDENCY_VERSION_UNSATISFIED" && i.Message.Contains("pick")), "All OR branches unsatisfied reported");
 
-            // ---- 非标准版本 → Unknown，不误拦 ----
+            // ---- nonstandardversion → Unknown，never over-blocks ----
             string weird = Dir("weird");
             Jar(weird, "lib", ModJson("lib", "1.0.0+build.7", null));
             Jar(weird, "user", ModJson("user", "1", "{\"lib\":\">=1.0.0+build.1\"}"));
@@ -85,19 +85,19 @@ namespace SuyunCraft
             check(issues.Any(i => i.Code == "MOD_DEPENDENCY_UNKNOWN"), "Build-metadata version reported unknown, never guessed");
             check(!issues.Any(i => i.BlocksLaunch), "Unknown never blocks launch");
 
-            // ---- minecraft / java 内建依赖 ----
+            // ---- minecraft / java builtindependency ----
             string builtin = Dir("builtin");
             Jar(builtin, "gate", ModJson("gate", "1", "{\"minecraft\":\">=1.21\",\"java\":\">=21\"}"));
             check(!Scan(builtin, "1.21.1", 21).Any(i => i.Code == "MOD_DEPENDENCY_VERSION_UNSATISFIED"), "minecraft/java builtin versions satisfy ranges");
             check(Scan(builtin, "1.20.1", 17).Any(i => i.Code == "MOD_DEPENDENCY_VERSION_UNSATISFIED"), "Old minecraft/java detected via builtins");
 
-            // ---- breaks 违反 ----
+            // ---- breaks violation ----
             string breaks = Dir("breaks");
             Jar(breaks, "lib", ModJson("lib", "3.0.0", null));
             Jar(breaks, "hater", ModJson("hater", "1", null, breaks: "{\"lib\":\">=3.0\"}"));
             check(Scan(breaks).Any(i => i.Code == "MOD_BREAKS_VIOLATED"), "breaks range violation reported");
 
-            // ---- 嵌套 jar 提供者 ----
+            // ---- nested jar provider ----
             string nested = Dir("nested");
             string nestedDir = Path.Combine(Root, "nested-mods");
             string outerPath = Path.Combine(nested, "mods", "bundle.jar");
@@ -114,12 +114,12 @@ namespace SuyunCraft
             issues = Scan(nested);
             check(!issues.Any(i => i.Code == "MOD_DEPENDENCY_UNRESOLVED" && i.Message.Contains("inner")), "Nested jar satisfies parent dependency");
 
-            // ---- 服务端限定依赖在客户端跳过 ----
+            // ---- Server-scoped dependencies skipped on the client ----
             string envSkip = Dir("envskip");
             Jar(envSkip, "mod", ModJson("mod", "1", "{\"serverhelper\":{\"version\":\"*\",\"environment\":\"server\"}}"));
             check(!Scan(envSkip).Any(i => i.Message.Contains("serverhelper")), "Server-scoped dependency skipped on client");
 
-            // ---- 依赖覆盖配置 ----
+            // ---- dependencyoverrideconfig ----
             string ovr = Dir("override");
             Jar(ovr, "lib", ModJson("lib", "1.0.0", null));
             Jar(ovr, "user", ModJson("user", "1", "{\"lib\":\">=2.0\"}"));
@@ -142,13 +142,13 @@ namespace SuyunCraft
             File.WriteAllText(overridePath, "{");
             check(Scan(ovr).Any(i => i.Code == "MOD_OVERRIDE_INVALID"), "Malformed loader override reports a diagnostic instead of crashing preflight");
 
-            // ---- 重复 ID 仍按原样报告（Fabric ID 最短 2 位，用合法的 xx） ----
+            // ---- Duplicate IDs still reported (Fabric IDs are 2+ chars; using valid xx） ----
             string dup = Dir("dup");
             Jar(dup, "a", ModJson("xx", "1", null));
             Jar(dup, "b", ModJson("xx", "2", null));
             check(Scan(dup).Any(i => i.Code == "MOD_DUPLICATE_ID"), "Duplicate IDs still reported");
 
-            // ---- 版本比较器单元 ----
+            // ---- versioncomparator unit ----
             check(FabricVersion.Compare(FabricVersion.Parse("1.16.5"), FabricVersion.Parse("1.16.4")) == 1, "Compare 1.16.5 > 1.16.4");
             check(FabricVersion.Compare(FabricVersion.Parse("1.0.0-alpha"), FabricVersion.Parse("1.0.0")) == -1, "Prerelease sorts before release");
             check(FabricVersion.Compare(FabricVersion.Parse("1.2"), FabricVersion.Parse("1.2.0")) == 0, "Missing segments pad to zero");

@@ -18,7 +18,7 @@ namespace SuyunCraft
 
     static class LaunchPlanner
     {
-        // ---------- 继承合并（Fabric 的 inheritsFrom） ----------
+        // ---------- Merge inheritance (Fabric  inheritsFrom） ----------
         public static Dictionary<string, object> LoadMerged(string gameDir, string id)
         {
             return LoadMerged(gameDir, id, new HashSet<string>(StringComparer.OrdinalIgnoreCase));
@@ -27,10 +27,10 @@ namespace SuyunCraft
         static Dictionary<string, object> LoadMerged(string gameDir, string id, HashSet<string> chain)
         {
             string path = FileSafety.VersionFile(gameDir, id, ".json");
-            if (chain.Count >= 32 || !chain.Add(id)) throw new InvalidDataException("版本继承存在循环或层级过深：" + id);
-            if (!File.Exists(path)) throw new FileNotFoundException("本地不存在版本 " + id, path);
+            if (chain.Count >= 32 || !chain.Add(id)) throw new InvalidDataException("versionCyclic inheritance or depth exceeded：" + id);
+            if (!File.Exists(path)) throw new FileNotFoundException("does not exist locallyversion " + id, path);
             var json = Json.D(Json.Parse(File.ReadAllText(path, Encoding.UTF8)));
-            if (json == null) throw new InvalidDataException("版本 JSON 解析失败：" + id);
+            if (json == null) throw new InvalidDataException("version JSON parse failed: " + id);
             string parentId = Json.S(json, "inheritsFrom", "");
             if (parentId.Length > 0) json = Merge(LoadMerged(gameDir, parentId, chain), json);
             else if (!Json.Has(json, "jar")) json["jar"] = id;
@@ -47,7 +47,7 @@ namespace SuyunCraft
                 if (kv.Key == "id") { r["id"] = kv.Value; continue; }
                 if (kv.Key == "libraries")
                 {
-                    // child 优先，同名去重
+                    // child  first, dedupe by name
                     List<object> libs = new List<object>(Json.A(kv.Value) ?? new object[0]);
                     HashSet<string> names = new HashSet<string>();
                     foreach (object l in libs) { string n = Json.S(l, "name", ""); if (n.Length > 0) names.Add(LibraryKey(n)); }
@@ -78,7 +78,7 @@ namespace SuyunCraft
             return r;
         }
 
-        // ---------- 规则判断 ----------
+        // ---------- rule evaluation ----------
         public static bool RulesPass(object rulesObj)
         {
             return RulesPass(rulesObj, new Dictionary<string, bool>());
@@ -131,7 +131,7 @@ namespace SuyunCraft
         {
             string[] ext = name.Split('@');
             string[] parts = ext[0].Split(':');
-            if (parts.Length < 3 || parts.Length > 4 || ext.Length > 2) throw new InvalidDataException("无效 Maven 坐标：" + name);
+            if (parts.Length < 3 || parts.Length > 4 || ext.Length > 2) throw new InvalidDataException("invalid Maven coordinate：" + name);
             foreach (string part in parts) FileSafety.Id(part);
             string extension = ext.Length == 2 ? FileSafety.Id(ext[1]) : "jar";
             return parts[0].Replace('.', '/') + "/" + parts[1] + "/" + parts[2] + "/" +
@@ -160,7 +160,7 @@ namespace SuyunCraft
                 if (natives == null || !natives.ContainsKey("windows")) continue;
                 string classifier = Json.S(natives, "windows", "").Replace("$" + "{arch}", Environment.Is64BitOperatingSystem ? "64" : "32");
                 var native = Json.D(Json.O(Json.O(downloads, "classifiers"), classifier));
-                if (downloads != null && native == null) throw new InvalidDataException("缺少 Windows native：" + name + ":" + classifier);
+                if (downloads != null && native == null) throw new InvalidDataException("missing Windows native: " + name + ":" + classifier);
                 var file = DescribeLibrary(lib, native, name + ":" + classifier, true);
                 foreach (object exclude in Json.A(Json.O(Json.O(lib, "extract"), "exclude")) ?? new object[0])
                     if (exclude is string) file.Excludes.Add((string)exclude);
@@ -181,15 +181,15 @@ namespace SuyunCraft
         public static string LibsDir(string gameDir) { return Path.Combine(gameDir, "libraries"); }
         public static string AssetsDir(string gameDir) { return Path.Combine(gameDir, "assets"); }
 
-        // ---------- 收集缺失文件（启动前校验 / 安装） ----------
+        // ---------- Collect missing files (pre-launch verify / Install） ----------
         public static List<DlItem> CollectMissing(string gameDir, Dictionary<string, object> version, string id, FileSafety.VerifyCache cache = null)
         {
             var missing = new List<DlItem>();
             string jarId = Json.S(version, "jar", id);
             string jar = FileSafety.VersionFile(gameDir, jarId, ".jar");
             var client = Json.O(Json.O(version, "downloads"), "client");
-            if (client != null) AddDownload(missing, jar, client, "客户端 " + jarId, cache);
-            else if (!File.Exists(jar)) throw new FileNotFoundException("缺少客户端 jar，请安装原版 " + jarId, jar);
+            if (client != null) AddDownload(missing, jar, client, "client " + jarId, cache);
+            else if (!File.Exists(jar)) throw new FileNotFoundException("Client jar missing; install the vanilla version " + jarId, jar);
             foreach (var lib in LibraryFiles(version))
             {
                 string path = FileSafety.Under(gameDir, "libraries/" + lib.Path, cache);
@@ -200,14 +200,14 @@ namespace SuyunCraft
             {
                 string indexId = FileSafety.Id(Json.S(index, "id", Json.S(version, "assets", "legacy")));
                 string path = FileSafety.Under(gameDir, "assets/indexes/" + indexId + ".json", cache);
-                AddDownload(missing, path, index, "资源索引 " + indexId, cache);
+                AddDownload(missing, path, index, "asset index " + indexId, cache);
                 if (FileSafety.Matches(path, Json.S(index, "sha1", null), Json.L(index, "size", 0), cache))
                     AddMissingAssets(missing, gameDir, path, indexId, cache);
             }
             var log = Json.O(Json.O(Json.O(version, "logging"), "client"), "file");
             if (log != null) AddDownload(missing, FileSafety.Under(gameDir, "assets/log_configs/" +
-                FileSafety.Id(Json.S(log, "id", "")), cache), log, "日志配置", cache);
-            return missing.GroupBy(item => item.Dest, StringComparer.OrdinalIgnoreCase).Select(group => group.First()).ToList();
+                FileSafety.Id(Json.S(log, "id", "")), cache), log, "logging config", cache);
+            return DownloadManager.PrepareItems(missing).ToList();
         }
 
         static void AddDownload(List<DlItem> list, string path, object metadata, string description, FileSafety.VerifyCache cache = null)
@@ -225,13 +225,13 @@ namespace SuyunCraft
         {
             var index = Json.D(Json.Parse(File.ReadAllText(indexPath, Encoding.UTF8)));
             var objects = Json.D(Json.O(index, "objects"));
-            if (objects == null) throw new InvalidDataException("资源索引缺少 objects");
+            if (objects == null) throw new InvalidDataException("asset indexmissing objects");
             bool virtualAssets = Json.B(index, "virtual", false);
             bool resources = Json.B(index, "map_to_resources", false);
             foreach (var entry in objects)
             {
                 string hash = Json.S(entry.Value, "hash", "");
-                if (!FileSafety.IsHash(hash, 40)) throw new InvalidDataException("资源 SHA1 格式错误：" + entry.Key);
+                if (!FileSafety.IsHash(hash, 40)) throw new InvalidDataException("assets SHA1 format error: " + entry.Key);
                 long size = Json.L(entry.Value, "size", 0);
                 string relative = hash.Substring(0, 2) + "/" + hash;
                 string path = FileSafety.Under(gameDir, "assets/objects/" + relative, cache);
@@ -240,7 +240,7 @@ namespace SuyunCraft
                 if (!FileSafety.Matches(path, hash, size, cache))
                 {
                     list.Add(new DlItem { Dest = path, Url = "https://resources.download.minecraft.net/" + relative,
-                        Sha1 = hash, Size = size, Desc = "资源 " + entry.Key });
+                        Sha1 = hash, Size = size, Desc = "assets " + entry.Key });
                     continue;
                 }
                 foreach (string destination in new[] { virtualPath, resourcePath })
@@ -253,7 +253,7 @@ namespace SuyunCraft
 
 
 
-        // ---------- 参数展开 ----------
+        // ---------- argumentsexpansion ----------
         static List<KeyValuePair<string, string>> Needles(Dictionary<string, string> vars)
         {
             var needles = new List<KeyValuePair<string, string>>(vars.Count);
@@ -305,7 +305,7 @@ namespace SuyunCraft
             }
         }
 
-        // ---------- 构建启动计划 ----------
+        // ---------- Build the launch plan ----------
         public class LaunchPlan
         {
             public string JavaExe, WorkingDir, CommandText, NativesDir, MainClass;
@@ -318,10 +318,11 @@ namespace SuyunCraft
             return Build(cfg, LoadMerged(Path.GetFullPath(cfg.GameDir), versionId), versionId, memGb, userName, isolation, winW, winH, prepareNatives);
         }
 
-        public static LaunchPlan Build(Config cfg, Dictionary<string, object> merged, string versionId, int memGb, string userName, bool isolation, int winW, int winH, bool prepareNatives = true)
+        public static LaunchPlan Build(Config cfg, Dictionary<string, object> merged, string versionId, int memGb, string userName, bool isolation, int winW, int winH, bool prepareNatives = true, System.Threading.CancellationToken cancellation = default(System.Threading.CancellationToken))
         {
+            cancellation.ThrowIfCancellationRequested();
             if (!System.Text.RegularExpressions.Regex.IsMatch(userName ?? "", @"\A[A-Za-z0-9_]{1,16}\z"))
-                throw new ArgumentException("离线玩家名须为 1–16 位英文字母、数字或下划线");
+                throw new ArgumentException("Offline player name must be 1-16 letters, digits or underscores");
             if (memGb < 1 || memGb > 256) throw new ArgumentOutOfRangeException("memGb");
             string gameDir = Path.GetFullPath(cfg.GameDir);
             var mj = merged;
@@ -340,6 +341,7 @@ namespace SuyunCraft
             List<KeyValuePair<string, List<string>>> nativeJars = new List<KeyValuePair<string, List<string>>>();
             foreach (var file in LibraryFiles(mj))
             {
+                cancellation.ThrowIfCancellationRequested();
                 string path = FileSafety.Under(gameRoot, "libraries/" + file.Path);
                 if (file.Native) nativeJars.Add(new KeyValuePair<string, List<string>>(path, file.Excludes));
                 else cp.Add(path);
@@ -351,22 +353,32 @@ namespace SuyunCraft
             Directory.CreateDirectory(nativesDir);
             foreach (var native in nativeJars)
             {
-                if (!File.Exists(native.Key)) throw new FileNotFoundException("缺少 native 库", native.Key);
+                if (!File.Exists(native.Key)) throw new FileNotFoundException("missing native library", native.Key);
                 using (var zip = ZipFile.OpenRead(native.Key))
                 {
                     long expanded = 0;
-                    if (zip.Entries.Count > 10000) throw new InvalidDataException("native 压缩包条目过多");
+                    if (zip.Entries.Count > 10000) throw new InvalidDataException("native archive has too many entries");
                     foreach (var entry in zip.Entries)
                     {
+                        cancellation.ThrowIfCancellationRequested();
                         expanded = checked(expanded + entry.Length);
-                        if (expanded > 512L * 1024 * 1024) throw new InvalidDataException("native 压缩包展开大小超过限制");
+                        if (expanded > 512L * 1024 * 1024) throw new InvalidDataException("native Archive expansion exceeds the limit");
                         // Validate even excluded entries; unsafe archives must fail closed.
                         string target = FileSafety.Under(nativesDir, entry.FullName);
                         if (string.IsNullOrEmpty(entry.Name) || entry.FullName.StartsWith("META-INF/", StringComparison.OrdinalIgnoreCase) ||
                             native.Value.Any(ex => entry.FullName.StartsWith(ex, StringComparison.Ordinal))) continue;
-                        if (entry.Length > 256L * 1024 * 1024) throw new InvalidDataException("native 文件大小超过限制");
+                        if (entry.Length > 256L * 1024 * 1024) throw new InvalidDataException("native filesize exceeds the limit");
                         Directory.CreateDirectory(Path.GetDirectoryName(target));
-                        entry.ExtractToFile(target, true);
+                        using (var input = entry.Open())
+                        using (var output = new FileStream(target, FileMode.Create, FileAccess.Write, FileShare.None))
+                        {
+                            var buffer = new byte[65536]; int count;
+                            while ((count = input.Read(buffer, 0, buffer.Length)) > 0)
+                            {
+                                cancellation.ThrowIfCancellationRequested();
+                                output.Write(buffer, 0, count);
+                            }
+                        }
                     }
                 }
             }
@@ -375,7 +387,7 @@ namespace SuyunCraft
 
             }
 
-            // 变量表
+            // variable table
             string aId = "legacy";
             var ai = Json.D(Json.O(mj, "assetIndex"));
             if (ai != null) aId = Json.S(ai, "id", Json.S(mj, "assets", "legacy"));
@@ -411,7 +423,7 @@ namespace SuyunCraft
             var needles = Needles(vars);
             var features = new Dictionary<string, bool> { { "has_custom_resolution", vars.ContainsKey("resolution_width") } };
 
-            // JVM 参数
+            // JVM arguments
             List<string> jvm = new List<string>();
             jvm.Add("-Xmx" + memGb + "G");
             jvm.Add("-Xms" + Math.Max(512, Math.Min(1024, memGb * 256)) + "M");
@@ -426,7 +438,7 @@ namespace SuyunCraft
                 jvm.Add(string.Join(";", cp.ToArray()));
             }
             jvm.Add("-Dlog4j2.formatMsgNoLookups=true");
-            // 日志配置
+            // logging config
             var logClient = Json.D(Json.O(Json.O(mj, "logging"), "client"));
             if (logClient != null)
             {
@@ -444,7 +456,7 @@ namespace SuyunCraft
             }
             if (!string.IsNullOrEmpty(cfg.ExtraJvm)) jvm.AddRange(SplitArgs(cfg.ExtraJvm));
 
-            // 游戏参数
+            // gamearguments
             List<string> game = new List<string>();
             object gameArr = Json.O(Json.O(mj, "arguments"), "game");
             if (gameArr != null && Json.A(gameArr) != null) game.AddRange(ExpandArgs(Json.A(gameArr), needles, features));
@@ -468,20 +480,20 @@ namespace SuyunCraft
                     if (game[i].StartsWith("--gameDir=", StringComparison.Ordinal)) game.RemoveAt(i);
                     else if (game[i] == "--gameDir")
                     {
-                        if (i + 1 >= game.Count || game[i + 1].StartsWith("--")) throw new InvalidDataException("版本的 --gameDir 参数缺少值");
+                        if (i + 1 >= game.Count || game[i + 1].StartsWith("--")) throw new InvalidDataException("version --gameDir argument missing a value");
                         game.RemoveRange(i, 2);
                     }
                 }
                 game.Add("--gameDir"); game.Add(actualGameDir);
                 foreach (string arg in jvm)
                     if (new[] { "-Duser.dir=", "-Dfabric.modsFolder=", "-Dfabric.addMods=", "-Dfabric.gameDir=" }.Any(prefix => arg.StartsWith(prefix, StringComparison.Ordinal)))
-                        throw new InvalidDataException("存档隔离时不允许覆盖游戏/模组目录的 JVM 参数：" + arg.Split('=')[0]);
+                        throw new InvalidDataException("Save isolation: JVM argument overrides for game/mod directories are not allowed: " + arg.Split('=')[0]);
             }
 
             string mainClass = Json.S(mj, "mainClass", "net.minecraft.client.main.Main");
             if (mainClass.Length == 0) mainClass = "net.minecraft.client.main.Main";
 
-            // 拼接命令
+            // join command
             List<string> all = new List<string>();
             all.AddRange(jvm);
             all.Add(mainClass);

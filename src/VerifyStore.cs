@@ -1,10 +1,10 @@
-// 持久化校验缓存（P2）：记录通过完整校验的文件指纹（长度+mtime+期望契约），
-// 下次启动若三者都没变则跳过哈希。失效规则：
-//  · 期望 sha1/size 变化 → 键不同 → 必然重新完整校验
-//  · 文件长度或 mtime 变化 → 记录不匹配 → 重新完整校验
-//  · 校验失败/文件缺失 → 永不写入缓存
-//  · schema 版本变化（校验逻辑升级）→ 整个缓存作废
-//  · 设置页「强制完整校验」→ 删除缓存文件，全量重扫
+// Persistent verify cache (P2): records fingerprints (length,+mtime+expected contract),
+// if all three are unchanged, hashing is skipped. Invalidation:
+//  · expected sha1/size changes → different key → forces a full re-verify
+//  · file length or mtime changes → record mismatch → full re-verification
+//  · verify fails/file missing → never written to the cache
+//  · schema version changes (verify logic upgrade）→ the whole cache is invalidated
+//  · the Settings page「Force full verification」→ Deletethe cache file; full rescan
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -14,6 +14,7 @@ namespace SuyunCraft
     static class VerifyStore
     {
         const int Schema = 1;
+        const int MaxEntries = 50000;
         static Dictionary<string, string> entries;
         static readonly object gate = new object();
         static bool loaded;
@@ -30,10 +31,12 @@ namespace SuyunCraft
                 try
                 {
                     if (!File.Exists(StoreFile)) return;
+                    if (new FileInfo(StoreFile).Length > 16L * 1024 * 1024) return;
                     var root = Json.D(Json.Parse(File.ReadAllText(StoreFile, System.Text.Encoding.UTF8)));
                     if (root == null || Json.L(root, "schema", 0) != Schema) return;
                     var e = Json.D(root["entries"]);
                     if (e == null) return;
+                    if (e.Count > MaxEntries) return;
                     foreach (KeyValuePair<string, object> kv in e)
                     { string v = kv.Value as string; if (v != null) entries[kv.Key] = v; }
                 }
@@ -41,9 +44,9 @@ namespace SuyunCraft
             }
         }
 
-        // 命中条件：期望契约一致 + (length, mtime) 未变 + 头部抽样哈希一致。
-        // 抽样防「等长篡改 + 恢复 mtime」的伪造：这类篡改头 4KB 命中率低，且破坏 JAR 头部必然异常。
-        // 完整防伪造由「强制完整校验」入口兜底；日常损坏（下载错误、磁盘坏块）绝大多数会改变长度/mtime/头部。
+        // hitCondition: expected contract matches + (length, mtime) unchanged + head sample hash matches。
+        // Performance cache only: sampling is not a full integrity or anti-tampering check.
+        // Use the settings full-verification action to rehash every file.
         public static bool Lookup(string path, string sha1, long size)
         {
             lock (gate)
@@ -52,23 +55,25 @@ namespace SuyunCraft
                 string record;
                 if (!entries.TryGetValue(Key(path, sha1, size), out record)) return false;
                 var info = new FileInfo(path);
-                if (!info.Exists) return false;
+                if (!info.Exists || info.Length == 0 || (size > 0 && info.Length != size)) return false;
                 if (!record.StartsWith(info.Length + "|" + info.LastWriteTimeUtc.Ticks + "|", StringComparison.Ordinal)) return false;
-                // 大文件（>32KB：客户端 jar、核心库、大资源）做头 4KB 抽样；小文件数量庞大（数千个
-                // 资源对象），逐个开句柄的开销会抵消全部加速收益，按业内通行做法信任 length+mtime。
-                // 「强制完整校验」入口可随时对全部文件做完整哈希。
-                if (info.Length <= 32 * 1024) return true;
+                string[] parts = record.Split('|');
+                if (parts.Length != 3) return false;
+                // large files (>32KB：client jar, core libraries, large assets) get a 4KB head sample; small files are numerous (thousands
+                // asset objects); per-file handles would erase the speedup, so trust length+mtime。
+                // 「Force full verification」entry can force a full hash of every file at any time。
+                if (info.Length <= 32 * 1024) return parts[2] == "-";
                 return HeadMatches(path, record);
             }
         }
 
-        // 头 4KB 哈希核对（记录第三段）。读 4KB 的成本约为全量哈希的 1/50（对 500KB 平均文件）。
+        // 4KB head hash check (third field). Reading 4KB costs ~1/50 of a full hash (500KB averagefile）。
         static bool HeadMatches(string path, string record)
         {
             try
             {
                 string[] parts = record.Split('|');
-                if (parts.Length < 3 || parts[2] == "-") return true;
+                if (parts.Length != 3 || !FileSafety.IsHash(parts[2], 40)) return false;
                 using (var sha = System.Security.Cryptography.SHA1.Create())
                 using (var stream = new FileStream(path, FileMode.Open, FileAccess.Read, FileShare.Read, 4096))
                 {
@@ -81,12 +86,12 @@ namespace SuyunCraft
             catch { return false; }
         }
 
-        // 只记录完整校验为 true 的文件；记录 = length|mtime|头4KB哈希。
+        // Only files that fully verify are recorded; record = = length|mtime|a 4KB head hash.
         public static void Record(string path, string sha1, long size)
         {
             lock (gate)
             {
-                if (entries == null) return;
+                if (entries == null || (entries.Count >= MaxEntries && !entries.ContainsKey(Key(path, sha1, size)))) return;
                 var info = new FileInfo(path);
                 if (!info.Exists) return;
                 string head = "-";
@@ -118,7 +123,7 @@ namespace SuyunCraft
                 if (entries == null) return;
                 try
                 {
-                    // 修剪：文件已不存在的条目不再保留（stat 一次，纯元数据操作）
+                    // Prune: entries whose files no longer exist are dropped (one stat, metadata only）
                     List<string> dead = new List<string>();
                     foreach (KeyValuePair<string, string> kv in entries)
                     {

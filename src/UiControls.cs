@@ -7,7 +7,7 @@ using System.Windows.Forms;
 
 namespace SuyunCraft
 {
-    /// <summary>按钮视觉类型。</summary>
+    /// <summary>Button visual type。</summary>
     public enum UiButtonKind
     {
         Primary,
@@ -17,7 +17,7 @@ namespace SuyunCraft
         Success
     }
 
-    /// <summary>轻量补间动画，用于悬停和状态过渡。</summary>
+    /// <summary>Lightweight tween for hover and state transitions。</summary>
     sealed class UiTween
     {
         readonly System.Windows.Forms.Timer timer;
@@ -61,7 +61,7 @@ namespace SuyunCraft
         }
     }
 
-    /// <summary>统一的深色按钮：圆角、渐变、悬停反馈与矢量图标。</summary>
+    /// <summary>Unified dark button: rounded, gradient, hover feedback and vector icons。</summary>
     class UiButton : Button
     {
         UiTween hover = new UiTween();
@@ -69,7 +69,7 @@ namespace SuyunCraft
 
         public UiButtonKind Kind = UiButtonKind.Secondary;
         public UiIcon Icon = UiIcon.None;
-        public int Radius = 8;
+        public int Radius = 6;
 
         public UiButton()
         {
@@ -137,101 +137,128 @@ namespace SuyunCraft
             g.SmoothingMode = SmoothingMode.AntiAlias;
             g.TextRenderingHint = System.Drawing.Text.TextRenderingHint.ClearTypeGridFit;
             Rectangle r = new Rectangle(0, 0, Width, Height);
+            int rad = Ui.Px(Radius);
             float hv = hover.Value;
             float pv = press.Value;
 
             Color fill;
             Color stroke;
-            Color glowColor = Theme.Accent;
+            Color deep;
             bool solid = true;
 
             if (!Enabled)
             {
                 fill = Theme.Card;
                 stroke = Theme.Border;
+                deep = Theme.Bg;
                 solid = false;
             }
             else if (Kind == UiButtonKind.Primary)
             {
                 fill = UiKit.Mix(Theme.Accent, Theme.AccentLight, hv);
-                stroke = UiKit.Mix(Theme.AccentDark, Theme.Accent, hv);
-                glowColor = Theme.Accent;
+                stroke = Theme.AccentDark;
+                deep = Theme.AccentDeep;
             }
             else if (Kind == UiButtonKind.Success)
             {
                 fill = UiKit.Mix(Theme.Blue, Theme.BlueLight, hv);
-                stroke = UiKit.Mix(Theme.BlueDark, Theme.Blue, hv);
-                glowColor = Theme.Blue;
+                stroke = Theme.BlueDark;
+                deep = Theme.BlueDark;
             }
             else if (Kind == UiButtonKind.Danger)
             {
                 fill = UiKit.Mix(Theme.Danger, Theme.DangerLight, hv);
-                stroke = UiKit.Mix(Theme.DangerDark, Theme.Danger, hv);
-                glowColor = Theme.Danger;
+                stroke = Theme.DangerDark;
+                deep = Theme.DangerDark;
             }
             else if (Kind == UiButtonKind.Ghost)
             {
                 fill = Parent != null ? Parent.BackColor : Theme.Bg;
                 stroke = UiKit.Alpha(fill, 0);
+                deep = stroke;
                 solid = false;
             }
             else
             {
-                fill = UiKit.Mix(Theme.Card, Theme.CardHover, hv);
+                fill = UiKit.Mix(Theme.CardTop, Theme.CardHover, hv);
                 stroke = UiKit.Mix(Theme.Border, Theme.BorderStrong, hv);
-                glowColor = Theme.CardHover;
+                deep = Theme.Bg;
             }
 
-            if (solid && Enabled && (Kind == UiButtonKind.Primary || Kind == UiButtonKind.Success || Kind == UiButtonKind.Danger))
-            {
-                UiKit.Glow(g, r, Ui.Px(Radius), UiKit.Alpha(glowColor, 200), Ui.Px(8 + (int)(hv * 8)));
-            }
+            // Pressed: the whole block sinks and bounces back - like pushing a block into the ground
+            int sink = pv > 0.45f ? Ui.Px(1) : 0;
+            Rectangle body = new Rectangle(r.X, r.Y + sink, r.Width, r.Height - sink);
 
             if (Kind == UiButtonKind.Ghost)
             {
                 if (hv > 0.01f)
-                    UiKit.FillRound(g, r, Ui.Px(Radius), UiKit.Alpha(Theme.Text, (int)(16 * hv)));
+                    UiKit.FillRound(g, body, rad, UiKit.Alpha(Theme.Text, (int)(16 * hv)));
+            }
+            else if (solid)
+            {
+                // Soft outer glow on hover
+                if (Enabled && hv > 0.01f)
+                    UiKit.Glow(g, body, rad, UiKit.Alpha(fill, (int)(110 * hv)), Ui.Px(6));
+
+                // A dark base first, then lift the lit bottom edge by 2px; those 2px are the block rim」
+                int edge = Math.Max(1, Ui.Px(2));
+                UiKit.FillRound(g, body, rad, deep);
+                Rectangle face = new Rectangle(body.X, body.Y, body.Width, Math.Max(Ui.Px(6), body.Height - edge));
+                Color top = UiKit.Mix(fill, System.Drawing.Color.White, 0.13);
+                Color bottom = UiKit.Mix(fill, System.Drawing.Color.Black, 0.06);
+                UiKit.FillRoundGradient(g, face, rad, top, bottom, true);
+                UiKit.Bevel(g, face, rad, UiKit.Alpha(System.Drawing.Color.White, Enabled ? 52 : 22), UiKit.Alpha(System.Drawing.Color.Black, 46));
+                UiKit.StrokeRound(g, body, rad, UiKit.Alpha(stroke, Enabled ? 255 : 120), 1f);
             }
             else
             {
-                Color top = UiKit.Mix(fill, System.Drawing.Color.White, pv * 0.14);
-                Color bottom = UiKit.Mix(fill, System.Drawing.Color.Black, 0.10 + pv * 0.08);
-                UiKit.FillRoundGradient(g, r, Ui.Px(Radius), top, bottom, true);
-                UiKit.StrokeRound(g, r, Ui.Px(Radius), UiKit.Alpha(stroke, Enabled ? 255 : 120), 1f);
+                UiKit.FillRound(g, body, rad, fill);
+                UiKit.StrokeRound(g, body, rad, UiKit.Alpha(stroke, Enabled ? 200 : 120), 1f);
             }
 
             if (Focused && Enabled)
-                UiKit.StrokeRound(g, Rectangle.Inflate(r, -2, -2), Ui.Px(Radius - 1), UiKit.Alpha(Theme.FocusRing, 200), 1f);
+                UiKit.StrokeRound(g, Rectangle.Inflate(body, -2, -2), Math.Max(1, rad - 1), UiKit.Alpha(Theme.FocusRing, 170), 1f);
 
             Color fore = Enabled ? ForeColor : Theme.Muted;
-            if (Kind == UiButtonKind.Primary || Kind == UiButtonKind.Success || Kind == UiButtonKind.Danger)
-                fore = System.Drawing.Color.White;
+            bool lightText = Kind == UiButtonKind.Primary || Kind == UiButtonKind.Success || Kind == UiButtonKind.Danger;
+            if (lightText) fore = System.Drawing.Color.White;
 
-            int iconSize = Math.Min(Ui.Px(18), Height - Ui.Px(10));
+            int iconSize = Math.Min(Ui.Px(18), Math.Max(Ui.Px(10), body.Height - Ui.Px(12)));
             bool hasIcon = Icon != UiIcon.None && iconSize >= Ui.Px(10);
             Size textSize = TextRenderer.MeasureText(Text, Font, new Size(Width, Height),
                 TextFormatFlags.NoPrefix | TextFormatFlags.SingleLine);
             int gap = hasIcon ? Ui.Px(8) : 0;
             int total = (hasIcon ? iconSize : 0) + gap + textSize.Width;
             int startX = Math.Max(0, (Width - total) / 2);
-            int cy = (Height - iconSize) / 2;
+            int cy = body.Y + (body.Height - iconSize) / 2;
 
             if (hasIcon)
             {
+                if (lightText && Enabled)
+                    UiKit.DrawIcon(g, Icon, new Rectangle(startX, cy + 1, iconSize, iconSize),
+                        UiKit.Alpha(System.Drawing.Color.Black, 70), 1.8f);
                 UiKit.DrawIcon(g, Icon, new Rectangle(startX, cy, iconSize, iconSize), fore, 1.8f);
             }
             if (Text.Length > 0)
             {
-                Rectangle textRect = new Rectangle(startX + (hasIcon ? iconSize + gap : 0), 0,
-                    Math.Max(0, Width - startX - (hasIcon ? iconSize + gap : 0)), Height);
-                TextRenderer.DrawText(g, Text, Font, textRect, fore,
-                    TextFormatFlags.NoPrefix | TextFormatFlags.VerticalCenter | TextFormatFlags.Left
-                    | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
+                int textX = startX + (hasIcon ? iconSize + gap : 0);
+                Rectangle textRect = new Rectangle(textX, body.Y, Math.Max(0, Width - textX), body.Height);
+                TextFormatFlags flags = TextFormatFlags.NoPrefix | TextFormatFlags.VerticalCenter
+                    | TextFormatFlags.Left | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine;
+                if (lightText && Enabled)
+                {
+                    UiKit.DrawTextShadow(g, Text, Font, textRect, fore, flags,
+                        UiKit.Alpha(System.Drawing.Color.Black, 90), 1);
+                }
+                else
+                {
+                    TextRenderer.DrawText(g, Text, Font, textRect, fore, flags);
+                }
             }
         }
     }
 
-    /// <summary>圆角输入框：外层自绘边框与聚焦光晕，内嵌无边框文本框。</summary>
+    /// <summary>Rounded text field: custom border, focus glow, borderless inner box。</summary>
     class UiTextField : Panel
     {
         readonly TextBox inner;
@@ -306,20 +333,22 @@ namespace SuyunCraft
             UiKit.ClearBackground(g, this);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             Rectangle r = new Rectangle(0, 0, Width, Height);
-            UiKit.FillRound(g, r, Ui.Px(8), Enabled ? Theme.Field : Theme.FieldDisabled);
+            int rad = Ui.Px(6);
+            UiKit.FillRound(g, r, rad, Enabled ? Theme.Field : Theme.FieldDisabled);
+            UiKit.Inset(g, r, rad, UiKit.Alpha(System.Drawing.Color.Black, 110));
             if (focused && Enabled)
             {
-                UiKit.Glow(g, r, Ui.Px(8), UiKit.Alpha(Theme.Accent, 150), Ui.Px(6));
-                UiKit.StrokeRound(g, r, Ui.Px(8), Theme.Accent, 1.4f);
+                UiKit.Glow(g, r, rad, UiKit.Alpha(Theme.Accent, 150), Ui.Px(5));
+                UiKit.StrokeRound(g, r, rad, Theme.Accent, 1.4f);
             }
             else
             {
-                UiKit.StrokeRound(g, r, Ui.Px(8), Theme.Border, 1f);
+                UiKit.StrokeRound(g, r, rad, UiKit.Mix(Theme.Border, Theme.BorderStrong, focused ? 1f : 0f), 1f);
             }
         }
     }
 
-    /// <summary>自绘下拉框：圆角外观与矢量箭头，展开列表仍由系统深色主题渲染。</summary>
+    /// <summary>Owner-drawn combo: rounded look and vector arrow; the dropdown list stays system-dark。</summary>
     class UiComboBox : ComboBox
     {
         bool focused;
@@ -345,13 +374,15 @@ namespace SuyunCraft
             UiKit.ClearBackground(g, this);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             Rectangle r = new Rectangle(0, 0, Width, Height);
-            UiKit.FillRound(g, r, Ui.Px(8), Enabled ? Theme.Field : Theme.FieldDisabled);
+            int rad = Ui.Px(6);
+            UiKit.FillRound(g, r, rad, Enabled ? Theme.Field : Theme.FieldDisabled);
+            UiKit.Inset(g, r, rad, UiKit.Alpha(System.Drawing.Color.Black, 110));
             if (focused && Enabled)
             {
-                UiKit.Glow(g, r, Ui.Px(8), UiKit.Alpha(Theme.Accent, 140), Ui.Px(6));
-                UiKit.StrokeRound(g, r, Ui.Px(8), Theme.Accent, 1.4f);
+                UiKit.Glow(g, r, rad, UiKit.Alpha(Theme.Accent, 140), Ui.Px(5));
+                UiKit.StrokeRound(g, r, rad, Theme.Accent, 1.4f);
             }
-            else UiKit.StrokeRound(g, r, Ui.Px(8), Theme.Border, 1f);
+            else UiKit.StrokeRound(g, r, rad, Theme.Border, 1f);
 
             string text = Text;
             Rectangle textRect = new Rectangle(Ui.Px(10), 0, Math.Max(10, Width - Ui.Px(34)), Height);
@@ -370,7 +401,7 @@ namespace SuyunCraft
         }
     }
 
-    /// <summary>自绘勾选框。</summary>
+    /// <summary>Owner-drawn checkbox。</summary>
     class UiCheckBox : CheckBox
     {
         UiTween tween = new UiTween();
@@ -390,7 +421,7 @@ namespace SuyunCraft
 
         protected override void OnPaintBackground(PaintEventArgs pe)
         {
-            // 用父控件底色清屏：透明背景会让 WinForms 用同一 DC 重绘整棵树，产生错位残影。
+            // Clear with the parent back color: transparency repaints the whole tree on one DC, causing ghosting。
             Control parent = Parent;
             pe.Graphics.Clear(parent != null ? parent.BackColor : Theme.Bg);
         }
@@ -433,11 +464,23 @@ namespace SuyunCraft
             bool indeterminate = CheckState == CheckState.Indeterminate;
 
             Color fill = Enabled ? (Checked || indeterminate ? Theme.Accent : Theme.Field) : Theme.FieldDisabled;
-            Color stroke = Enabled ? (Checked || indeterminate ? Theme.Accent : Theme.Border) : Theme.Border;
+            Color stroke = Enabled ? (Checked || indeterminate ? Theme.AccentDark : Theme.Border) : Theme.Border;
 
             if (hot && Enabled && !Checked) stroke = Theme.BorderStrong;
-            UiKit.FillRound(g, mark, Ui.Px(5), fill);
-            UiKit.StrokeRound(g, mark, Ui.Px(5), stroke, 1.2f);
+            int rad = Ui.Px(3);
+            if (Checked || indeterminate)
+            {
+                UiKit.FillRound(g, mark, rad, Theme.AccentDeep);
+                Rectangle face = new Rectangle(mark.X, mark.Y, mark.Width, mark.Height - Math.Max(1, Ui.Px(2)));
+                UiKit.FillRoundGradient(g, face, rad, Theme.AccentLight, Theme.Accent, true);
+                UiKit.Bevel(g, face, rad, UiKit.Alpha(System.Drawing.Color.White, 55), UiKit.Alpha(System.Drawing.Color.Black, 40));
+            }
+            else
+            {
+                UiKit.FillRound(g, mark, rad, fill);
+                UiKit.Inset(g, mark, rad, UiKit.Alpha(System.Drawing.Color.Black, 120));
+            }
+            UiKit.StrokeRound(g, mark, rad, stroke, 1.2f);
 
             if (mix > 0.02f)
             {
@@ -468,7 +511,7 @@ namespace SuyunCraft
         }
     }
 
-    /// <summary>自绘单选按钮。</summary>
+    /// <summary>Owner-drawn radio button。</summary>
     class UiRadioButton : RadioButton
     {
         UiTween tween = new UiTween();
@@ -531,7 +574,7 @@ namespace SuyunCraft
         }
     }
 
-    /// <summary>自绘内存滑块：圆角轨道、已选区间与发光滑块。</summary>
+    /// <summary>Owner-drawn slider: rounded track, selected range, glowing thumb。</summary>
     class UiTrackBar : TrackBar
     {
         public UiTrackBar()
@@ -553,26 +596,51 @@ namespace SuyunCraft
             Graphics g = e.Graphics;
             UiKit.ClearBackground(g, this);
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            int knob = Ui.Px(16);
+            int knobW = Ui.Px(14);
+            int knobH = Ui.Px(18);
             int cy = Height / 2;
-            int travel = Math.Max(1, Width - knob);
+            int travel = Math.Max(1, Width - knobW);
             double ratio = (Maximum > Minimum) ? (double)(Value - Minimum) / (Maximum - Minimum) : 0;
             ratio = Math.Max(0, Math.Min(1, ratio));
             int knobX = (int)Math.Round(travel * ratio);
 
-            Rectangle track = new Rectangle(0, cy - Ui.Px(3), Math.Max(1, Width), Ui.Px(6));
-            UiKit.FillRound(g, track, Ui.Px(3), Theme.Field);
-            Rectangle filled = new Rectangle(track.X, track.Y, Math.Max(Ui.Px(6), knobX + knob / 2), track.Height);
-            UiKit.FillRoundGradient(g, filled, Ui.Px(3), Theme.AccentLight, Theme.Accent, false);
+            // groovetrack
+            int rad = Ui.Px(2);
+            Rectangle track = new Rectangle(0, cy - Ui.Px(4), Math.Max(1, Width), Ui.Px(8));
+            UiKit.FillRound(g, track, rad, Theme.FieldDeep);
+            UiKit.Inset(g, track, rad, UiKit.Alpha(System.Drawing.Color.Black, 130));
+            UiKit.StrokeRound(g, track, rad, Theme.Border, 1f);
 
-            Rectangle knobRect = new Rectangle(knobX, cy - knob / 2, knob, knob);
-            UiKit.Glow(g, knobRect, knob / 2, UiKit.Alpha(Theme.Accent, 180), Ui.Px(7));
-            UiKit.FillRound(g, knobRect, knob / 2, System.Drawing.Color.White);
-            UiKit.StrokeRound(g, knobRect, knob / 2, UiKit.Alpha(Theme.Accent, 220), 1.6f);
+            // Selected range: grass-green fill + Segmented ticks
+            int fillRight = Math.Min(track.Right, knobX + knobW / 2);
+            if (fillRight > Ui.Px(4))
+            {
+                Rectangle filled = new Rectangle(track.X, track.Y, fillRight, track.Height);
+                UiKit.FillRoundGradient(g, filled, rad, Theme.AccentLight, Theme.AccentDark, true);
+                using (Pen tick = new Pen(UiKit.Alpha(System.Drawing.Color.Black, 55), 1f))
+                {
+                    for (int x = filled.X + Ui.Px(6); x < filled.Right - Ui.Px(2); x += Ui.Px(7))
+                        g.DrawLine(tick, x, filled.Top + Ui.Px(2), x, filled.Bottom - Ui.Px(3));
+                }
+            }
+
+            // Thumb
+            Rectangle knobRect = new Rectangle(knobX, cy - knobH / 2, knobW, knobH);
+            UiKit.PixelShadow(g, knobRect, rad, Theme.Shadow, Ui.Px(2));
+            UiKit.FillRound(g, knobRect, rad, Theme.AccentDeep);
+            Rectangle kface = new Rectangle(knobRect.X, knobRect.Y, knobRect.Width, knobRect.Height - Ui.Px(2));
+            UiKit.FillRoundGradient(g, kface, rad,
+                System.Drawing.Color.FromArgb(240, 244, 236), System.Drawing.Color.FromArgb(204, 212, 200), true);
+            UiKit.Bevel(g, kface, rad, UiKit.Alpha(System.Drawing.Color.White, 170), UiKit.Alpha(System.Drawing.Color.Black, 60));
+            using (Pen grip = new Pen(UiKit.Alpha(System.Drawing.Color.Black, 60), 1f))
+            {
+                g.DrawLine(grip, knobRect.X + Ui.Px(4), cy - Ui.Px(3), knobRect.Right - Ui.Px(5), cy - Ui.Px(3));
+                g.DrawLine(grip, knobRect.X + Ui.Px(4), cy + Ui.Px(2), knobRect.Right - Ui.Px(5), cy + Ui.Px(2));
+            }
         }
     }
 
-    /// <summary>自绘数字输入：隐藏系统微调按钮，改用自绘箭头。</summary>
+    /// <summary>Owner-drawn numeric input: hidden spin buttons, custom arrows。</summary>
     class UiNumeric : NumericUpDown
     {
         bool hotUp;
@@ -603,8 +671,10 @@ namespace SuyunCraft
             UiKit.ClearBackground(g, this);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             Rectangle r = new Rectangle(0, 0, Width, Height);
-            UiKit.FillRound(g, r, Ui.Px(8), Enabled ? Theme.Field : Theme.FieldDisabled);
-            UiKit.StrokeRound(g, r, Ui.Px(8), Theme.Border, 1f);
+            int rad = Ui.Px(6);
+            UiKit.FillRound(g, r, rad, Enabled ? Theme.Field : Theme.FieldDisabled);
+            UiKit.Inset(g, r, rad, UiKit.Alpha(System.Drawing.Color.Black, 110));
+            UiKit.StrokeRound(g, r, rad, Theme.Border, 1f);
             Rectangle textRect = new Rectangle(Ui.Px(10), 0, Math.Max(10, Width - Ui.Px(40)), Height);
             TextRenderer.DrawText(g, Text, Font, textRect, Enabled ? Theme.Text : Theme.TextDisabled,
                 TextFormatFlags.NoPrefix | TextFormatFlags.VerticalCenter | TextFormatFlags.Left
@@ -664,9 +734,9 @@ namespace SuyunCraft
     }
 
     /// <summary>
-    /// 自绘列表表头条。
-    /// 原生 ListView 表头在最后一列右侧会露出系统浅色区域，深色主题下极其刺眼，
-    /// 因此隐藏原生表头，改用与列宽对齐的自绘表头。
+    /// Owner-drawn list header.
+    /// The native ListView header leaves a light gap after the last column, jarring on dark;
+    /// so the native header is hidden in favor of an aligned custom one。
     /// </summary>
     class UiListHeader : Control
     {
@@ -702,7 +772,7 @@ namespace SuyunCraft
         }
     }
 
-    /// <summary>自绘列表：深色表头、斑马行、悬停高亮与强调选中态。</summary>
+    /// <summary>Owner-drawn list: dark header, zebra rows, hover highlight, emphatic selection。</summary>
     class UiListView : ListView
     {
         int hoverIndex = -1;
@@ -714,7 +784,7 @@ namespace SuyunCraft
             FullRowSelect = true;
             HideSelection = false;
             BorderStyle = BorderStyle.None;
-            // 隐藏原生表头：最后一列右侧会露出系统浅色区域，深色主题下无法接受。
+            // Hide the native header: its trailing area renders light, unacceptable on dark。
             HeaderStyle = ColumnHeaderStyle.None;
             BackColor = Theme.Field;
             ForeColor = Theme.Text;
@@ -764,14 +834,16 @@ namespace SuyunCraft
             bool hovered = !selected && e.ItemIndex == hoverIndex;
             if (selected)
             {
-                using (SolidBrush b = new SolidBrush(UiKit.Alpha(Theme.Accent, 38)))
+                using (SolidBrush b = new SolidBrush(UiKit.Alpha(Theme.Accent, 34)))
                     g.FillRectangle(b, r);
-                using (Pen p = new Pen(UiKit.Alpha(Theme.Accent, 120), 1f))
+                using (SolidBrush b = new SolidBrush(Theme.Accent))
+                    g.FillRectangle(b, r.X, r.Y, Ui.Px(3), r.Height);
+                using (Pen p = new Pen(UiKit.Alpha(Theme.Accent, 110), 1f))
                     g.DrawLine(p, r.Left, r.Bottom - 1, r.Right, r.Bottom - 1);
             }
             else if (hovered)
             {
-                using (SolidBrush b = new SolidBrush(UiKit.Alpha(System.Drawing.Color.White, 10)))
+                using (SolidBrush b = new SolidBrush(UiKit.Alpha(System.Drawing.Color.White, 9)))
                     g.FillRectangle(b, r);
                 using (SolidBrush b = new SolidBrush(UiKit.Alpha(Theme.Accent, 150)))
                     g.FillRectangle(b, r.X, r.Y, Ui.Px(2), r.Height);
@@ -800,13 +872,13 @@ namespace SuyunCraft
     }
 
     /// <summary>
-    /// 与父容器底色融为一体的标签。
-    /// 不用 Color.Transparent：透明背景会让 WinForms 用同一个 DC 重绘整棵控件树，
-    /// 导致侧栏图标等内容被画到错误位置（残影）。这里改为自行清除父容器底色。
+    /// A label that blends into its container.
+    /// No Color.Transparent: transparency repaints the whole tree on one DC
+    /// misplacing sidebar icons (ghosting). We clear with the parent back color instead。
     /// </summary>
     class UiLabel : Label
     {
-        /// <summary>是否与父容器底色融合；状态栏这类自绘底色的控件需要关闭。</summary>
+        /// <summary>Blend with the parent back color; needed by self-painted controls like the status barClose。</summary>
         public bool BlendBackground = true;
 
         public UiLabel()
@@ -824,26 +896,26 @@ namespace SuyunCraft
 
         protected override void OnPaint(PaintEventArgs pe)
         {
-            // 双缓冲下 OnPaintBackground 不会被调用，必须在这里铺底色，否则会露出复用缓冲的残影。
+            // With double buffering OnPaintBackground is not called; paint the base color here or pooled buffers leave ghosts。
             if (BlendBackground) UiKit.ClearBackground(pe.Graphics, this);
             base.OnPaint(pe);
         }
     }
 
     /// <summary>
-    /// 内容页容器：统一绘制背景光晕与页头，并承载入场过渡状态。
-    /// 页头必须由页面自己绘制——子控件只能铺平底色，会把背景光晕擦出硬边矩形；
-    /// 页面背景保持不透明，透明背景会让 WinForms 用同一个 DC 重绘整棵控件树，产生错位残影。
+    /// Content page container: paints the ambient glow and page header, carrying the enter-transition state.
+    /// The header must be painted by the page itself - children only fill flat colors and would erase the glow;
+    /// Pages stay opaque; transparency makes WinForms repaint the whole tree on one DC, causing ghosting。
     /// </summary>
     class UiPage : Panel
     {
-        /// <summary>页头主标题。</summary>
+        /// <summary>Page title。</summary>
         public string HeaderTitle = "";
-        /// <summary>页头副标题。</summary>
+        /// <summary>Page subtitle。</summary>
         public string HeaderSubtitle = "";
-        /// <summary>页头入场进度 0~1（1 为完全显示）；用颜色混合模拟淡入，避免引入透明背景。</summary>
+        /// <summary>Header enter progress 0~1（1 fully visible); fade via color blending instead of transparency。</summary>
         public float HeaderFade = 1f;
-        /// <summary>页头纵向位移（像素），入场时从上方滑入。</summary>
+        /// <summary>Header vertical offset (px); slides in from above。</summary>
         public int HeaderShift = 0;
 
         public UiPage()
@@ -859,12 +931,14 @@ namespace SuyunCraft
             Graphics g = e.Graphics;
             UiKit.ClearBackground(g, this);
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            UiKit.RadialGlow(g, new Point(Width - Ui.Px(90), Ui.Px(20)), Ui.Px(320), UiKit.Alpha(Theme.Accent, 22));
-            UiKit.RadialGlow(g, new Point(Ui.Px(40), Height - Ui.Px(10)), Ui.Px(300), UiKit.Alpha(Theme.Blue, 18));
+            // World block grid: near-invisible texture between cards
+            UiKit.BlockGrid(g, new Rectangle(0, 0, Width, Height), Ui.Px(52), UiKit.Alpha(System.Drawing.Color.White, 6));
+            UiKit.RadialGlow(g, new Point(Width - Ui.Px(120), Ui.Px(6)), Ui.Px(340), UiKit.Alpha(Theme.Accent, 26));
+            UiKit.RadialGlow(g, new Point(Ui.Px(30), Height - Ui.Px(20)), Ui.Px(300), UiKit.Alpha(Theme.Gold, 16));
             DrawHeader(g);
         }
 
-        /// <summary>绘制页头标题与副标题（带淡入与位移）。</summary>
+        /// <summary>Draw the page header title and subtitle (fade + offset）。</summary>
         void DrawHeader(Graphics g)
         {
             if (HeaderTitle.Length == 0) return;
@@ -874,20 +948,20 @@ namespace SuyunCraft
             Color title = UiKit.Mix(Theme.Bg, Theme.Text, f);
             Color sub = UiKit.Mix(Theme.Bg, Theme.Muted, f);
             TextRenderer.DrawText(g, HeaderTitle, Theme.HeadingBold,
-                new Rectangle(0, dy, Ui.Px(320), Ui.Px(30)), title,
+                new Rectangle(0, dy, Ui.Px(360), Ui.Px(32)), title,
                 TextFormatFlags.NoPrefix | TextFormatFlags.Left | TextFormatFlags.VerticalCenter
                 | TextFormatFlags.SingleLine);
             TextRenderer.DrawText(g, HeaderSubtitle, Theme.Caption,
-                new Rectangle(Ui.Px(1), dy + Ui.Px(24), Ui.Px(480), Ui.Px(26)), sub,
+                new Rectangle(Ui.Px(1), dy + Ui.Px(28), Ui.Px(520), Ui.Px(24)), sub,
                 TextFormatFlags.NoPrefix | TextFormatFlags.Left | TextFormatFlags.VerticalCenter
                 | TextFormatFlags.SingleLine);
         }
     }
 
-    /// <summary>圆角卡片容器，带细边框与柔和投影。</summary>
+    /// <summary>Rounded card with a hard shadow and lit top edge - like a stone slab。</summary>
     class UiCard : Panel
     {
-        int radius = 12;
+        int radius = 8;
 
         public UiCard()
         {
@@ -908,13 +982,24 @@ namespace SuyunCraft
             g.SmoothingMode = SmoothingMode.AntiAlias;
             Rectangle r = new Rectangle(0, 0, Width, Height);
             int rad = Ui.Px(radius);
-            if (Shadow) UiKit.DropShadow(g, r, rad, Color.Black, Ui.Px(10));
             UiKit.FillRound(g, r, rad, BackColor);
+            if (Shadow)
+            {
+                // Solid dark edge at the card bottom: controls clip at their bounds, so the shadow must be inner
+                GraphicsState state = g.Save();
+                using (GraphicsPath p = UiKit.RoundPath(r, rad))
+                using (Region clip = new Region(p))
+                    g.SetClip(clip, CombineMode.Intersect);
+                using (SolidBrush b = new SolidBrush(UiKit.Alpha(System.Drawing.Color.Black, 70)))
+                    g.FillRectangle(b, r.X, r.Bottom - Ui.Px(3), r.Width, Ui.Px(3));
+                g.Restore(state);
+            }
+            UiKit.Bevel(g, r, rad, Theme.BevelLight, Theme.BevelDark);
             UiKit.StrokeRound(g, r, rad, Theme.Border, 1f);
         }
     }
 
-    /// <summary>侧边栏品牌标识：渐变方形图标 + 中英文名称。</summary>
+    /// <summary>Sidebar brand: isometric grass block + Chinese and English names.</summary>
     class UiBrand : Control
     {
         public UiBrand()
@@ -935,18 +1020,14 @@ namespace SuyunCraft
             Graphics g = pe.Graphics;
             UiKit.ClearBackground(g, this);
             g.SmoothingMode = SmoothingMode.AntiAlias;
-            int size = Ui.Px(38);
+            int size = Ui.Px(40);
             int y = Ui.Px(22);
             Rectangle logo = new Rectangle(Ui.Px(18), y, size, size);
-            UiKit.Glow(g, logo, Ui.Px(11), UiKit.Alpha(Theme.Accent, 170), Ui.Px(12));
-            UiKit.FillRoundGradient(g, logo, Ui.Px(11), Theme.AccentLight, Theme.AccentDark, true);
-            UiKit.StrokeRound(g, logo, Ui.Px(11), UiKit.Alpha(System.Drawing.Color.White, 60), 1f);
-            int glyph = Ui.Px(20);
-            UiKit.DrawIcon(g, UiIcon.Cube, new Rectangle(logo.X + (size - glyph) / 2, logo.Y + (size - glyph) / 2, glyph, glyph), System.Drawing.Color.White, 1.8f);
+            UiKit.IsoBlock(g, logo, true);
 
-            int textX = Ui.Px(66);
-            int textW = Math.Max(10, Width - textX - Ui.Px(12));
-            TextRenderer.DrawText(g, "溯昀启动器", Theme.TitleBold,
+            int textX = Ui.Px(70);
+            int textW = Math.Max(10, Width - textX - Ui.Px(10));
+            TextRenderer.DrawText(g, "SuyunCraft Launcher", Theme.TitleBold,
                 new Rectangle(textX, y - Ui.Px(2), textW, Ui.Px(24)), Theme.Text,
                 TextFormatFlags.NoPrefix | TextFormatFlags.Left | TextFormatFlags.VerticalCenter
                 | TextFormatFlags.EndEllipsis | TextFormatFlags.SingleLine);
@@ -957,7 +1038,7 @@ namespace SuyunCraft
         }
     }
 
-    /// <summary>侧边栏导航项：图标 + 文字 + 选中指示条。</summary>
+    /// <summary>Sidebar nav item: icon + text + Selection indicator。</summary>
     class UiNavItem : Control
     {
         UiTween hover = new UiTween();
@@ -984,7 +1065,7 @@ namespace SuyunCraft
             pe.Graphics.Clear(parent != null ? parent.BackColor : Theme.Panel);
         }
 
-        /// <summary>切换选中状态并播放过渡动画。</summary>
+        /// <summary>Toggle the selected state with a transition。</summary>
         public void SetActive(bool value)
         {
             if (Active == value) return;
@@ -1021,21 +1102,22 @@ namespace SuyunCraft
 
             if (a > 0.01f)
             {
-                Rectangle pill = new Rectangle(0, Ui.Px(2), Width, Height - Ui.Px(4));
-                UiKit.FillRoundGradient(gg, pill, Ui.Px(10),
-                    UiKit.Alpha(Theme.Accent, (int)(46 * a)), UiKit.Alpha(Theme.AccentDark, (int)(24 * a)), true);
-                UiKit.StrokeRound(gg, pill, Ui.Px(10), UiKit.Alpha(Theme.Accent, (int)(70 * a)), 1f);
+                Rectangle pill = new Rectangle(Ui.Px(6), Ui.Px(2), Width - Ui.Px(6), Height - Ui.Px(4));
+                UiKit.FillRoundGradient(gg, pill, Ui.Px(5),
+                    UiKit.Alpha(Theme.Accent, (int)(44 * a)), UiKit.Alpha(Theme.AccentDark, (int)(26 * a)), true);
+                UiKit.Bevel(gg, pill, Ui.Px(5), UiKit.Alpha(System.Drawing.Color.White, (int)(26 * a)), UiKit.Alpha(System.Drawing.Color.Black, (int)(40 * a)));
+                UiKit.StrokeRound(gg, pill, Ui.Px(5), UiKit.Alpha(Theme.Accent, (int)(74 * a)), 1f);
             }
             else if (h > 0.01f)
             {
-                UiKit.FillRound(gg, new Rectangle(0, Ui.Px(2), Width, Height - Ui.Px(4)), Ui.Px(10),
-                    UiKit.Alpha(System.Drawing.Color.White, (int)(14 * h)));
+                UiKit.FillRound(gg, new Rectangle(Ui.Px(6), Ui.Px(2), Width - Ui.Px(6), Height - Ui.Px(4)), Ui.Px(5),
+                    UiKit.Alpha(System.Drawing.Color.White, (int)(12 * h)));
             }
 
             if (a > 0.01f)
             {
-                Rectangle bar = new Rectangle(0, Ui.Px(10), Ui.Px(3), Height - Ui.Px(20));
-                UiKit.FillRound(gg, bar, Ui.Px(2), UiKit.Alpha(Theme.Accent, (int)(255 * a)));
+                Rectangle bar = new Rectangle(0, Ui.Px(9), Ui.Px(3), Height - Ui.Px(18));
+                UiKit.FillRound(gg, bar, Ui.Px(1), UiKit.Alpha(Theme.AccentLight, (int)(255 * a)));
             }
 
             Color fore = UiKit.Mix(Theme.Muted, Theme.Text, Math.Max(h, a));
@@ -1054,7 +1136,7 @@ namespace SuyunCraft
         }
     }
 
-    /// <summary>日志视图：等宽字体、分类着色与自绘滚动条。</summary>
+    /// <summary>Log view: monospace, categorized colors, custom scrollbar。</summary>
     class UiLogView : Control
     {
         readonly List<string> lines = new List<string>();
@@ -1065,7 +1147,7 @@ namespace SuyunCraft
         {
             SetStyle(ControlStyles.UserPaint | ControlStyles.AllPaintingInWmPaint
                 | ControlStyles.OptimizedDoubleBuffer | ControlStyles.ResizeRedraw, true);
-            BackColor = Theme.Field;
+            BackColor = Theme.FieldDeep;
             Font = Theme.Console;
             DoubleBuffered = true;
         }
@@ -1171,8 +1253,9 @@ namespace SuyunCraft
             UiKit.ClearBackground(g, this);
             g.SmoothingMode = SmoothingMode.AntiAlias;
             Rectangle r = new Rectangle(0, 0, Width, Height);
-            using (SolidBrush b = new SolidBrush(Theme.Field))
+            using (SolidBrush b = new SolidBrush(Theme.FieldDeep))
                 g.FillRectangle(b, r);
+            UiKit.Inset(g, r, 0, UiKit.Alpha(System.Drawing.Color.Black, 150));
 
             ClampScroll();
             int lh = LineHeight();
@@ -1190,7 +1273,7 @@ namespace SuyunCraft
 
             if (lines.Count == 0)
             {
-                TextRenderer.DrawText(g, "暂无输出。启动游戏后这里会显示 stdout / stderr。", Font,
+                TextRenderer.DrawText(g, "No output yet. Launch the game and it appears here stdout / stderr。", Font,
                     new Rectangle(Ui.Px(12), Ui.Px(10), Math.Max(10, Width - Ui.Px(24)), Ui.Px(24)), Theme.TextDisabled,
                     TextFormatFlags.NoPrefix | TextFormatFlags.Left | TextFormatFlags.NoPadding);
             }
@@ -1212,8 +1295,8 @@ namespace SuyunCraft
         {
             if (line.StartsWith("[err]")) return Theme.Danger;
             if (line.StartsWith("[out]")) return Theme.LogMuted;
-            if (line.StartsWith("[启动器]")) return Theme.Accent;
-            if (line.StartsWith("[预检")) return Theme.Warning;
+            if (line.StartsWith("[Launch ]")) return Theme.Accent;
+            if (line.StartsWith("[preflight")) return Theme.Warning;
             return Theme.LogText;
         }
     }

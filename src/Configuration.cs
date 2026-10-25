@@ -60,7 +60,7 @@ namespace SuyunCraft
         public bool AutoMemory = true;
         public string Mirror = Mirrors.Bmclapi;      // official | bmclapi
         public string ExtraJvm = "";
-        public bool VersionIsolation = false;       // 版本隔离：每个版本独立 mods/configs
+        public bool VersionIsolation = false;       // versionIsolation: each version gets its own mods/configs
         public int WindowWidth = 854;
         public int WindowHeight = 480;
         public bool CaptureGameLog = true;
@@ -93,7 +93,7 @@ namespace SuyunCraft
                     {
                         c.GameDir = Json.S(d, "GameDir", ""); c.JavaPath = Json.S(d, "JavaPath", "");
                         c.UserName = Json.S(d, "UserName", "Player"); c.MemoryGb = (int)Json.L(d, "MemoryGb", 4);
-                        c.AutoMemory = Json.B(d, "AutoMemory", true); // bool 序列化
+                        c.AutoMemory = Json.B(d, "AutoMemory", true); // bool   serialization
                         c.Mirror = Json.S(d, "Mirror", Mirrors.Bmclapi); c.ExtraJvm = Json.S(d, "ExtraJvm", "");
                         c.VersionIsolation = Json.B(d, "VersionIsolation", false);
                         c.WindowWidth = (int)Json.L(d, "WindowWidth", 854); c.WindowHeight = (int)Json.L(d, "WindowHeight", 480);
@@ -119,7 +119,7 @@ namespace SuyunCraft
                 Directory.CreateDirectory(BaseDir);
                 FileSafety.WriteText(path ?? ConfigPath, Json.Dump(this));
             }
-            catch (Exception ex) { MessageBox.Show("配置保存失败：" + ex.Message, "SuyunCraft"); }
+            catch (Exception ex) { MessageBox.Show("Failed to save config: " + ex.Message, "SuyunCraft"); }
         }
     }
 }

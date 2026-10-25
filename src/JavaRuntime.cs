@@ -4,11 +4,14 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading.Tasks;
+using System.Threading;
+using System.Collections.Concurrent;
 
 namespace SuyunCraft
 {
     static class JavaUtil
     {
+        static readonly ConcurrentDictionary<string, Tuple<string, int>> probes = new ConcurrentDictionary<string, Tuple<string, int>>(StringComparer.OrdinalIgnoreCase);
         public static List<string> Detect()
         {
             List<string> roots = new List<string>();
@@ -58,34 +61,57 @@ namespace SuyunCraft
             catch { return new string[0]; }
         }
 
-        public static int GetMajor(string javawPath)
+        public static int GetMajor(string javawPath, CancellationToken cancellation = default(CancellationToken))
         {
+            cancellation.ThrowIfCancellationRequested();
             try
             {
                 string consoleJava = Path.Combine(Path.GetDirectoryName(Path.GetFullPath(javawPath)), "java.exe");
                 if (!File.Exists(consoleJava)) consoleJava = javawPath;
+                var executable = new FileInfo(consoleJava);
+                var release = new FileInfo(Path.Combine(executable.Directory.Parent.FullName, "release"));
+                string fingerprint = executable.Length + "|" + executable.LastWriteTimeUtc.Ticks + "|" +
+                    (release.Exists ? release.Length + "|" + release.LastWriteTimeUtc.Ticks : "");
+                Tuple<string, int> cached;
+                if (probes.TryGetValue(executable.FullName, out cached) && cached.Item1 == fingerprint) return cached.Item2;
                 var info = new ProcessStartInfo(consoleJava, "-version") {
                     UseShellExecute = false, CreateNoWindow = true,
                     RedirectStandardError = true, RedirectStandardOutput = true
                 };
                 using (var process = Process.Start(info))
                 {
-                    Task<string> stderr = process.StandardError.ReadToEndAsync();
-                    Task<string> stdout = process.StandardOutput.ReadToEndAsync();
-                    if (!process.WaitForExit(8000)) { process.Kill(); process.WaitForExit(2000); return -1; }
-                    string output = stderr.GetAwaiter().GetResult() + " " + stdout.GetAwaiter().GetResult();
-                    var match = System.Text.RegularExpressions.Regex.Match(output, "version\\s+\"(1\\.)?([0-9]+)");
-                    int major;
-                    return match.Success && int.TryParse(match.Groups[2].Value, out major) ? major : -1;
+                    try
+                    {
+                        Task<string> stderr = process.StandardError.ReadToEndAsync();
+                        Task<string> stdout = process.StandardOutput.ReadToEndAsync();
+                        var watch = Stopwatch.StartNew();
+                        while (!process.WaitForExit(100))
+                        {
+                            cancellation.ThrowIfCancellationRequested();
+                            if (watch.ElapsedMilliseconds >= 8000) return -1;
+                        }
+                        cancellation.ThrowIfCancellationRequested();
+                        if (!Task.WaitAll(new Task[] { stderr, stdout }, 500, cancellation)) return -1;
+                        string output = stderr.Result + " " + stdout.Result;
+                        var match = System.Text.RegularExpressions.Regex.Match(output, "version\\s+\"(1\\.)?([0-9]+)");
+                        int major;
+                        if (process.ExitCode != 0 || !match.Success || !int.TryParse(match.Groups[2].Value, out major)) return -1;
+                        if (probes.Count >= 128) probes.Clear();
+                        probes[executable.FullName] = Tuple.Create(fingerprint, major);
+                        return major;
+                    }
+                    finally { try { if (!process.HasExited) process.Kill(); } catch { } }
                 }
             }
+            catch (OperationCanceledException) { throw; }
             catch { return -1; }
         }
 
-        public static string Select(string preferred, int required)
+        public static string Select(string preferred, int required, CancellationToken cancellation = default(CancellationToken))
         {
+            cancellation.ThrowIfCancellationRequested();
             // The usual path needs one probe, without scanning all runtime installation directories.
-            int preferredMajor = !string.IsNullOrEmpty(preferred) && File.Exists(preferred) ? GetMajor(preferred) : -1;
+            int preferredMajor = !string.IsNullOrEmpty(preferred) && File.Exists(preferred) ? GetMajor(preferred, cancellation) : -1;
             if (preferredMajor == required) return preferred;
             var candidates = new List<string>();
             if (!string.IsNullOrEmpty(preferred) && File.Exists(preferred)) candidates.Add(preferred);
@@ -93,12 +119,13 @@ namespace SuyunCraft
             string newer = null;
             foreach (string path in candidates.Distinct(StringComparer.OrdinalIgnoreCase))
             {
-                int major = string.Equals(path, preferred, StringComparison.OrdinalIgnoreCase) ? preferredMajor : GetMajor(path);
+                cancellation.ThrowIfCancellationRequested();
+                int major = string.Equals(path, preferred, StringComparison.OrdinalIgnoreCase) ? preferredMajor : GetMajor(path, cancellation);
                 if (major == required) return path;
                 if (required > 8 && major > required && newer == null) newer = path;
             }
             if (newer != null) return newer;
-            throw new InvalidOperationException("未找到匹配的 Java " + required + "。请到设置中下载或选择对应 Java。");
+            throw new InvalidOperationException("No matching Java found " + required + "。Download or select a matching Java in Settings.");
         }
 
     }

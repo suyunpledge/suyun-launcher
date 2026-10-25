@@ -1,31 +1,32 @@
 using System;
 using System.Drawing;
 using System.Drawing.Drawing2D;
+using System.Windows.Forms;
 
 namespace SuyunCraft
 {
     /// <summary>
-    /// 高 DPI 缩放：布局与自绘细节统一按显示器 DPI 放大，避免文字被裁切。
-    /// 字体由 GDI 按系统 DPI 自动放大，因此这里只需保证控件坐标同比例缩放。
+    /// High-DPI: layout and custom drawing scale with the monitor to avoid clipped text.
+    /// GDI scales fonts automatically; only control coordinates need scaling。
     /// </summary>
     static class Ui
     {
         static float scale = 1f;
 
-        /// <summary>当前缩放系数（96 DPI 时为 1）。</summary>
+        /// <summary>Current scale factor (1 at 96 DPI: 1）。</summary>
         public static float Scale
         {
             get { return scale; }
             set { if (value > 0.05f && value < 8f) scale = value; }
         }
 
-        /// <summary>把设计像素换算为实际设备像素。</summary>
+        /// <summary>Convert design px to device px。</summary>
         public static int Px(int value)
         {
             return (int)Math.Round(value * scale);
         }
 
-        /// <summary>把设计像素换算为实际设备像素（浮点）。</summary>
+        /// <summary>Convert design px to device px (float）。</summary>
         public static float Px(float value)
         {
             return (float)Math.Round(value * scale);
@@ -34,7 +35,7 @@ namespace SuyunCraft
         [System.Runtime.InteropServices.DllImport("user32.dll")]
         static extern uint GetDpiForSystem();
 
-        /// <summary>按系统 DPI 初始化缩放系数；重复调用安全。</summary>
+        /// <summary>Initialize the scale factor from system DPI; idempotent。</summary>
         public static void InitScale()
         {
             try
@@ -46,8 +47,8 @@ namespace SuyunCraft
         }
 
         /// <summary>
-        /// 把运行时创建的窗体（对话框）按 DPI 放大一次。
-        /// 窗体内部仍按 96 DPI 设计，调用后控件边界与字号才会匹配。
+        /// Scale runtime-created forms (dialogs) once for DPI.
+        /// Forms are designed at 96 DPI; bounds and fonts match after this call。
         /// </summary>
         public static void ScaleForm(System.Windows.Forms.Form form)
         {
@@ -55,14 +56,14 @@ namespace SuyunCraft
             if (k <= 1.001f) return;
             System.Drawing.Size min = form.MinimumSize;
             form.Scale(new System.Drawing.SizeF(k, k));
-            // Scale 本身已经放大过 MinimumSize，这里按原始值重算一次，避免二次放大把窗口撑大。
+            // Scale MinimumSize was already scaled; recompute from the raw value to avoid double scaling。
             form.MinimumSize = new System.Drawing.Size(
                 (int)Math.Round(min.Width * k),
                 (int)Math.Round(min.Height * k));
         }
     }
 
-    /// <summary>界面使用的矢量图标，全部由 GDI+ 绘制，避免额外资源依赖。</summary>
+    /// <summary>Vector icons used by the UI, all drawn by GDI+ drawing; no extra asset dependencies.</summary>
     public enum UiIcon
     {
         None = 0,
@@ -90,14 +91,14 @@ namespace SuyunCraft
     }
 
     /// <summary>
-    /// 绘图工具箱：圆角、渐变、柔光阴影与矢量图标。
-    /// 所有方法都要求调用方自行管理 GraphicsPath 的释放。
+    /// Drawing kit: rounded rects, gradients, soft shadows and vector icons.
+    /// Callers own GraphicsPath disposal。
     /// </summary>
     static class UiKit
     {
         public const int Radius = 10;
 
-        /// <summary>生成圆角矩形路径。</summary>
+        /// <summary>Build a rounded-rect path。</summary>
         public static GraphicsPath RoundPath(Rectangle r, int radius)
         {
             GraphicsPath path = new GraphicsPath();
@@ -120,7 +121,7 @@ namespace SuyunCraft
             return path;
         }
 
-        /// <summary>圆角填充。</summary>
+        /// <summary>Rounded fill。</summary>
         public static void FillRound(Graphics g, Rectangle r, int radius, Color color)
         {
             using (GraphicsPath p = RoundPath(r, radius))
@@ -128,7 +129,7 @@ namespace SuyunCraft
                 g.FillPath(b, p);
         }
 
-        /// <summary>圆角线性渐变填充。</summary>
+        /// <summary>Rounded linear-gradient fill。</summary>
         public static void FillRoundGradient(Graphics g, Rectangle r, int radius, Color top, Color bottom, bool vertical)
         {
             using (GraphicsPath p = RoundPath(r, radius))
@@ -137,7 +138,7 @@ namespace SuyunCraft
                 g.FillPath(b, p);
         }
 
-        /// <summary>圆角描边。</summary>
+        /// <summary>Rounded stroke。</summary>
         public static void StrokeRound(Graphics g, Rectangle r, int radius, Color color, float width)
         {
             Rectangle inset = new Rectangle(r.X, r.Y, r.Width, r.Height);
@@ -146,7 +147,7 @@ namespace SuyunCraft
                 g.DrawPath(pen, p);
         }
 
-        /// <summary>柔和外发光，用于主按钮和聚焦卡片。</summary>
+        /// <summary>Soft outer glow for primary buttons and focused cards。</summary>
         public static void Glow(Graphics g, Rectangle r, int radius, Color color, int spread)
         {
             if (spread <= 0) return;
@@ -161,7 +162,7 @@ namespace SuyunCraft
             }
         }
 
-        /// <summary>卡片下方的投影。</summary>
+        /// <summary>Shadow under cards。</summary>
         public static void DropShadow(Graphics g, Rectangle r, int radius, Color color, int spread)
         {
             if (spread <= 0) return;
@@ -176,7 +177,7 @@ namespace SuyunCraft
             }
         }
 
-        /// <summary>径向柔光，用于背景光斑。</summary>
+        /// <summary>Radial glow for background spots。</summary>
         public static void RadialGlow(Graphics g, Point center, int radius, Color color)
         {
             if (radius <= 0) return;
@@ -195,10 +196,131 @@ namespace SuyunCraft
         }
 
         /// <summary>
-        /// 清空控件背景。
-        /// 开启双缓冲后 WinForms 只调用 OnPaint、不再调用 OnPaintBackground，
-        /// 而缓冲位图是池化复用的（不会自动清空），因此自绘控件必须在 OnPaint 里先铺底色，
-        /// 否则会露出上一个使用该缓冲的控件的残影。
+        /// Block bevel: a lit line along the top and a dark line along the bottom inside a rounded rect.
+        /// This is the core Minecraft GUI language - lit faces up, shaded faces down,
+        /// giving flat fills instant slab-like depth。
+        /// </summary>
+        public static void Bevel(Graphics g, Rectangle r, int radius, Color light, Color dark)
+        {
+            if (r.Width < 6 || r.Height < 6) return;
+            GraphicsState state = g.Save();
+            using (GraphicsPath p = RoundPath(r, radius))
+            using (Region clip = new Region(p))
+            {
+                g.SetClip(clip, CombineMode.Intersect);
+                using (Pen pen = new Pen(light, 1f))
+                    g.DrawLine(pen, r.Left + 1, r.Top + 0.5f, r.Right - 1, r.Top + 0.5f);
+                using (Pen pen = new Pen(dark, 1f))
+                    g.DrawLine(pen, r.Left + 1, r.Bottom - 1.5f, r.Right - 1, r.Bottom - 1.5f);
+            }
+            g.Restore(state);
+        }
+
+        /// <summary>Inset: a dark line on top for sunken surfaces like inputs and tracks。</summary>
+        public static void Inset(Graphics g, Rectangle r, int radius, Color dark)
+        {
+            if (r.Width < 6 || r.Height < 6) return;
+            GraphicsState state = g.Save();
+            using (GraphicsPath p = RoundPath(r, radius))
+            using (Region clip = new Region(p))
+            {
+                g.SetClip(clip, CombineMode.Intersect);
+                using (Pen pen = new Pen(dark, 1f))
+                    g.DrawLine(pen, r.Left + 1, r.Top + 0.5f, r.Right - 1, r.Top + 0.5f);
+            }
+            g.Restore(state);
+        }
+
+        /// <summary>Hard shadow: block-like, crisp edges, more pixel than gaussian。</summary>
+        public static void PixelShadow(Graphics g, Rectangle r, int radius, Color color, int offset)
+        {
+            if (offset <= 0) return;
+            Rectangle box = new Rectangle(r.X, r.Y + offset, r.Width, r.Height);
+            using (GraphicsPath p = RoundPath(box, radius))
+            using (SolidBrush b = new SolidBrush(color))
+                g.FillPath(b, p);
+        }
+
+        /// <summary>
+        /// Background block grid: world-like seams, near invisible, texture without noise。
+        /// </summary>
+        public static void BlockGrid(Graphics g, Rectangle area, int step, Color color)
+        {
+            if (step < 8) return;
+            using (Pen pen = new Pen(color, 1f))
+            {
+                for (int x = area.Left + step; x < area.Right; x += step)
+                    g.DrawLine(pen, x, area.Top, x, area.Bottom);
+                for (int y = area.Top + step; y < area.Bottom; y += step)
+                    g.DrawLine(pen, area.Left, y, area.Right, y);
+            }
+        }
+
+        /// <summary>Outlined text that stays readable on saturated backgrounds。</summary>
+        public static void DrawTextShadow(Graphics g, string text, Font font, Rectangle rect, Color color,
+            TextFormatFlags flags, Color shadow, int offset)
+        {
+            Rectangle shifted = new Rectangle(rect.X, rect.Y + offset, rect.Width, rect.Height);
+            TextRenderer.DrawText(g, text, font, shifted, shadow, flags);
+            TextRenderer.DrawText(g, text, font, rect, color, flags);
+        }
+
+        /// <summary>
+        /// Isometric grass block: grass top, lit left dirt, shaded right dirt, grass overlay.
+        /// Used by the brand and empty states; the most direct Minecraft signal in the UI。
+        /// </summary>
+        public static void IsoBlock(Graphics g, Rectangle box, bool glow)
+        {
+            int s = Math.Min(box.Width, box.Height);
+            if (s < 10) return;
+            float x = box.X + (box.Width - s) / 2f;
+            float y = box.Y + (box.Height - s) / 2f;
+            float cx = x + s / 2f;
+
+            PointF a = new PointF(cx, y);
+            PointF b = new PointF(x + s, y + s * 0.275f);
+            PointF c = new PointF(cx, y + s * 0.55f);
+            PointF d = new PointF(x, y + s * 0.275f);
+            PointF e = new PointF(x, y + s * 0.775f);
+            PointF f = new PointF(cx, y + s);
+            PointF gp = new PointF(x + s, y + s * 0.775f);
+
+            if (glow) Glow(g, Rectangle.Round(new RectangleF(x, y, s, s)), (int)(s * 0.3f), Alpha(Theme.Accent, 190), (int)(s * 0.34f));
+
+            // Left (lit dirt）
+            using (SolidBrush b1 = new SolidBrush(Theme.DirtLight))
+                g.FillPolygon(b1, new PointF[] { d, c, f, e });
+            // Right (shaded dirt）
+            using (SolidBrush b2 = new SolidBrush(Theme.DirtDark))
+                g.FillPolygon(b2, new PointF[] { c, b, gp, f });
+            // Top (grass, lit above shaded below）
+            RectangleF topBox = new RectangleF(x, y, s, s * 0.55f);
+            using (LinearGradientBrush tb = new LinearGradientBrush(topBox, Theme.AccentLight, Theme.Accent, 90f))
+                g.FillPolygon(tb, new PointF[] { a, b, c, d });
+            // Grass overlay: a grass strip along both top edges
+            using (SolidBrush gb = new SolidBrush(Theme.Accent))
+            {
+                g.FillPolygon(gb, new PointF[] { d, c, new PointF(c.X, c.Y + s * 0.10f), new PointF(d.X, d.Y + s * 0.10f) });
+                g.FillPolygon(gb, new PointF[] { c, b, new PointF(b.X, b.Y + s * 0.10f), new PointF(c.X, c.Y + s * 0.10f) });
+            }
+            // outline
+            using (Pen pen = new Pen(Alpha(Color.Black, 130), Math.Max(1f, s / 34f)))
+            {
+                pen.LineJoin = LineJoin.Round;
+                g.DrawPolygon(pen, new PointF[] { a, b, c, d });
+                g.DrawLine(pen, d, e);
+                g.DrawLine(pen, e, f);
+                g.DrawLine(pen, f, gp);
+                g.DrawLine(pen, gp, b);
+                g.DrawLine(pen, c, f);
+            }
+        }
+
+        /// <summary>
+        /// Clear the control background.
+        /// With double buffering WinForms calls only OnPaint, never OnPaintBackground,
+        /// and pooled buffers are not auto-cleared, so custom controls must fill a base color in OnPaint
+        /// or ghosts from the previous buffer user appear。
         /// </summary>
         public static void ClearBackground(Graphics g, System.Windows.Forms.Control owner)
         {
@@ -206,7 +328,7 @@ namespace SuyunCraft
             g.Clear(parent != null ? parent.BackColor : Theme.Bg);
         }
 
-        /// <summary>把两个颜色按比例混合。</summary>
+        /// <summary>Blend two colors by ratio。</summary>
         public static Color Mix(Color a, Color b, double t)
         {
             if (t <= 0) return a;
@@ -218,14 +340,14 @@ namespace SuyunCraft
                 (int)(a.B + (b.B - a.B) * t));
         }
 
-        /// <summary>调整颜色透明度。</summary>
+        /// <summary>Adjust color alpha。</summary>
         public static Color Alpha(Color c, int alpha)
         {
             return Color.FromArgb(Math.Max(0, Math.Min(255, alpha)), c.R, c.G, c.B);
         }
 
         /// <summary>
-        /// 绘制矢量图标。图标绘制在 rect 的正方形内并居中。
+        /// Draw a vector icon centered in the square of rect。
         /// </summary>
         public static void DrawIcon(Graphics g, UiIcon icon, Rectangle rect, Color color, float weight)
         {
@@ -234,7 +356,7 @@ namespace SuyunCraft
             if (side <= 4) return;
             int x = rect.X + (rect.Width - side) / 2;
             int y = rect.Y + (rect.Height - side) / 2;
-            float u = side / 24f; // 以 24 为基准的设计网格
+            float u = side / 24f; // Design grid based on 24
 
             SmoothingMode old = g.SmoothingMode;
             g.SmoothingMode = SmoothingMode.AntiAlias;

@@ -44,15 +44,15 @@ namespace SuyunCraft
         internal static string ReadMetadata(ZipArchive archive, string name)
         {
             var entries = archive.Entries.Where(e => e.FullName == name).ToArray();
-            if (entries.Length != 1) throw new InvalidDataException("缺少或重复的 " + name);
-            if (entries[0].Length > 1024 * 1024) throw new InvalidDataException("模组元数据超过 1 MB");
+            if (entries.Length != 1) throw new InvalidDataException("missing or duplicate  " + name);
+            if (entries[0].Length > 1024 * 1024) throw new InvalidDataException("modmetadata exceeds 1 MB");
             using (var input = entries[0].Open())
             using (var output = new MemoryStream())
             {
                 byte[] buffer = new byte[8192]; int count;
                 while ((count = input.Read(buffer, 0, buffer.Length)) > 0)
                 {
-                    if (output.Length + count > 1024 * 1024) throw new InvalidDataException("模组元数据超过 1 MB");
+                    if (output.Length + count > 1024 * 1024) throw new InvalidDataException("modmetadata exceeds 1 MB");
                     output.Write(buffer, 0, count);
                 }
                 return new UTF8Encoding(false, true).GetString(output.ToArray()).TrimStart('\uFEFF');
@@ -80,10 +80,10 @@ namespace SuyunCraft
             var info = new ModFileInfo { FileName = name, Name = name, Enabled = name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) };
             try
             {
-                if (new FileInfo(path).Length > 512L * 1024 * 1024) throw new InvalidDataException("模组超过 512 MB，未扫描");
+                if (new FileInfo(path).Length > 512L * 1024 * 1024) throw new InvalidDataException("mod exceeds 512 MB; skipped");
                 using (var archive = ZipFile.OpenRead(path))
                 {
-                    if (archive.Entries.Count > 100000) throw new InvalidDataException("ZIP 条目数超过限制");
+                    if (archive.Entries.Count > 100000) throw new InvalidDataException("ZIP entry count exceeds the limit");
                     info.Loaders.AddRange(DetectLoaders(archive));
                     if (info.Loaders.Contains("fabric"))
                     {
@@ -93,12 +93,12 @@ namespace SuyunCraft
                     else if (info.Loaders.Contains("quilt"))
                     {
                         var json = Json.D(Json.Parse(ReadMetadata(archive, "quilt.mod.json")));
-                        if (json == null) throw new InvalidDataException("Quilt 元数据必须是对象");
+                        if (json == null) throw new InvalidDataException("Quilt metadata must be an object");
                         if (Json.L(json, "schema_version", 0) == 1)
                         {
                             var loader = Json.O(json, "quilt_loader");
                             info.Id = Json.S(loader, "id", ""); info.Version = Json.S(loader, "version", "");
-                            if (!System.Text.RegularExpressions.Regex.IsMatch(info.Id, @"\A[a-z][a-z0-9_-]{1,63}\z") || string.IsNullOrWhiteSpace(info.Version)) throw new InvalidDataException("无效的 Quilt 模组 ID / 版本");
+                            if (!System.Text.RegularExpressions.Regex.IsMatch(info.Id, @"\A[a-z][a-z0-9_-]{1,63}\z") || string.IsNullOrWhiteSpace(info.Version)) throw new InvalidDataException("invalid Quilt mod id/version");
                             info.Name = Json.S(Json.O(loader, "metadata"), "name", info.Id);
                         }
                     }
@@ -119,7 +119,7 @@ namespace SuyunCraft
             string dir = FileSafety.Under(GameDirectory, "mods");
             if (!Directory.Exists(dir)) return new List<ModFileInfo>();
             var paths = Directory.EnumerateFiles(dir).Where(p => p.EndsWith(".jar", StringComparison.OrdinalIgnoreCase) || p.EndsWith(".jar.disabled", StringComparison.OrdinalIgnoreCase)).Take(2049).ToArray();
-            if (paths.Length > 2048) throw new InvalidDataException("模组超过 2048 个，请分实例管理");
+            if (paths.Length > 2048) throw new InvalidDataException("modOver 2048; manage across instances");
             return paths.OrderBy(p => p, StringComparer.OrdinalIgnoreCase).Select(p => {
                 string name = Path.GetFileName(p);
                 try { return ReadFile(FileSafety.Under(dir, name), name); }
@@ -140,9 +140,9 @@ namespace SuyunCraft
         {
             var files = sources.Take(129).ToArray();
             if (files.Length == 0) return 0;
-            if (files.Length > 128) throw new InvalidDataException("每次最多导入 128 个模组");
+            if (files.Length > 128) throw new InvalidDataException("Import at most 128 files at oncemod");
             var existing = List();
-            if (existing.Count + files.Length > 2048) throw new InvalidDataException("模组数量将超过 2048");
+            if (existing.Count + files.Length > 2048) throw new InvalidDataException("modcount would exceed 2048");
             var names = new HashSet<string>(existing.Select(m => m.FileName.EndsWith(".disabled", StringComparison.OrdinalIgnoreCase) ? m.FileName.Substring(0, m.FileName.Length - 9) : m.FileName), StringComparer.OrdinalIgnoreCase);
             var ids = new HashSet<string>(existing.Where(m => m.Enabled && m.Id.Length > 0).Select(m => m.Id), StringComparer.Ordinal);
             string staging = FileSafety.Under(GameDirectory, "suyuncraft-mod-staging/" + Guid.NewGuid().ToString("N"));
@@ -156,8 +156,8 @@ namespace SuyunCraft
                 foreach (string source in files)
                 {
                     string name = FileSafety.Id(Path.GetFileName(source));
-                    if (!name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("只接受 .jar 模组：" + name);
-                    if (!names.Add(name)) throw new InvalidDataException("已存在同名模组（可能已停用）：" + name);
+                    if (!name.EndsWith(".jar", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("accepts only  .jar mod：" + name);
+                    if (!names.Add(name)) throw new InvalidDataException("a mod with this name exists (possibly already Disabled）：" + name);
                     string temp = FileSafety.Under(staging, name);
                     prepared.Add(new KeyValuePair<string, string>(temp, name));
                     // Copy a bounded snapshot, then validate that exact snapshot before committing.
@@ -168,13 +168,13 @@ namespace SuyunCraft
                         while ((count = input.Read(buffer, 0, buffer.Length)) > 0)
                         {
                             size += count; total += count;
-                            if (size > 512L * 1024 * 1024 || total > 2L * 1024 * 1024 * 1024) throw new InvalidDataException("单个模组上限 512 MB，单批上限 2 GB");
+                            if (size > 512L * 1024 * 1024 || total > 2L * 1024 * 1024 * 1024) throw new InvalidDataException("Per-mod limit 512 MB; per-batch limit  2 GB");
                             output.Write(buffer, 0, count);
                         }
                     }
                     var mod = ReadFile(temp, name);
                     if (mod.Error.Length > 0) throw new InvalidDataException(name + "：" + mod.Error);
-                    if (mod.Id.Length > 0 && !ids.Add(mod.Id)) throw new InvalidDataException("重复的模组 ID " + mod.Id + "；请先停用旧版本");
+                    if (mod.Id.Length > 0 && !ids.Add(mod.Id)) throw new InvalidDataException("duplicate mod id " + mod.Id + "；Disable the old one first: version");
                 }
                 Directory.CreateDirectory(FileSafety.Under(GameDirectory, "mods"));
                 foreach (var pair in prepared)
@@ -197,7 +197,7 @@ namespace SuyunCraft
                 if (failures.Count > 0)
                 {
                     preserveStaging = true; failures.Insert(0, original);
-                    throw new IOException("部分导入文件无法回滚，请检查 mods 和暂存目录：" + staging, new AggregateException(failures));
+                    throw new IOException("Some imported files could not roll back; check mods and stagingdirectory：" + staging, new AggregateException(failures));
                 }
                 throw;
             }
@@ -219,7 +219,7 @@ namespace SuyunCraft
         {
             FileSafety.Id(fileName);
             bool current = fileName.EndsWith(".jar", StringComparison.OrdinalIgnoreCase);
-            if (!current && !fileName.EndsWith(".jar.disabled", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("不是受管理的模组文件");
+            if (!current && !fileName.EndsWith(".jar.disabled", StringComparison.OrdinalIgnoreCase)) throw new InvalidDataException("is not managedmodfile");
             if (current == enabled) return;
             string source = ModPath(fileName);
             string targetName = enabled ? fileName.Substring(0, fileName.Length - 9) : fileName + ".disabled";
@@ -227,7 +227,7 @@ namespace SuyunCraft
             {
                 var mod = ReadFile(source, targetName);
                 if (mod.Error.Length > 0) throw new InvalidDataException(mod.Error);
-                if (mod.Id.Length > 0 && List().Any(m => m.Enabled && m.Id == mod.Id)) throw new InvalidDataException("已有启用的模组声明 ID " + mod.Id + "，请先停用旧版本");
+                if (mod.Id.Length > 0 && List().Any(m => m.Enabled && m.Id == mod.Id)) throw new InvalidDataException("already enabled: moddeclares ID " + mod.Id + "，Disable the old one first: version");
             }
             File.Move(source, ModPath(targetName));
         }

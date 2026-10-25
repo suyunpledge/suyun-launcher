@@ -1,5 +1,5 @@
-// P1: Fabric 依赖解析 —— 类型化版本约束、三态判定、嵌套 jar 与加载器依赖覆盖。
-// 设计约束：解析失败永远返回 Unknown，绝不自动判定为兼容；不执行/不解压安装任何模组本体。
+// P1: Fabric dependency resolution - typed version constraints, three-state verdicts, nested jars and loader dependency overrides.
+// Design constraint: parse failures always return Unknown, never assumed compatible; mod jars are never executed or unpacked。
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -13,7 +13,7 @@ namespace SuyunCraft
 {
     enum DependencyVerdict { Satisfied, Unsatisfied, Unknown }
 
-    /// <summary>有界解析的 Fabric 版本号：点分数字核心 + 可选预发布后缀。解析不了则 Valid=false。</summary>
+    /// <summary>Bounded Fabric version: dotted-numeric core + optional prerelease suffix. Unparseable becomes Valid=false。</summary>
     sealed class FabricVersion
     {
         public readonly int[] Numbers;
@@ -46,8 +46,8 @@ namespace SuyunCraft
             return new FabricVersion(nums, pre, text);
         }
 
-        // 语义化比较：核心数字逐位比（缺位补 0）；同核心时正式版 > 预发布版；双预发布按字符序。
-        // 任一方无效返回 null（调用方必须把 null 当 Unknown，不得当相等）。
+        // Semantic compare: segment-wise (missing pads 0); within the same coreRelease > prerelease; two prereleases compare ordinally.
+        // either side invalid returns null (callers must treat null as Unknown, never equal）。
         public static int? Compare(FabricVersion a, FabricVersion b)
         {
             if (a == null || b == null || !a.Valid || !b.Valid) return null;
@@ -68,13 +68,13 @@ namespace SuyunCraft
         public override string ToString() { return Raw; }
     }
 
-    /// <summary>单个比较条件，如 ">=1.2"、"1.16.x"、"~0.11"、"^1.2.3"、精确 "1.0.0"、"*"。</summary>
+    /// <summary>A single comparison term, e.g. ">=1.2"、"1.16.x"、"~0.11"、"^1.2.3"、exact "1.0.0"、"*"。</summary>
     sealed class FabricTerm
     {
-        public string Op = "";            // "" | "=" | ">" | ">=" | "<" | "<=" | "~" | "^" | "*"（* 用 Any 表示）
+        public string Op = "";            // "" | "=" | ">" | ">=" | "<" | "<=" | "~" | "^" | "*"（* Any means）
         public bool Any;
-        public FabricVersion Version;     // Op 为 * 时为 null
-        public bool WildcardTrailing;     // 末位是 x/X/*（如 1.16.x），此时 Op 必为 "" 或 "="
+        public FabricVersion Version;     // Op   * null when
+        public bool WildcardTrailing;     // trailing x/X/*（ like 1.16.x); Op must be ""  or  "="
         public bool Valid = true;
 
         public DependencyVerdict Evaluate(FabricVersion candidate)
@@ -85,7 +85,7 @@ namespace SuyunCraft
             {
                 if (Version == null || !Version.Valid || candidate == null || !candidate.Valid) return DependencyVerdict.Unknown;
                 int[] lower = Version.Numbers;
-                // 上界 = lower 非通配前缀 +1（1.16.x → <1.17；1.x → <2）
+                // upper bound = lower non-wildcard prefix +1（1.16.x → <1.17；1.x → <2）
                 int[] upper = new int[lower.Length];
                 for (int i = 0; i < lower.Length; i++) upper[i] = lower[i];
                 upper[upper.Length - 1] = upper[upper.Length - 1] + 1;
@@ -109,7 +109,7 @@ namespace SuyunCraft
                 case "<=": ok = c <= 0; break;
                 case "~":
                 {
-                    // >=v 且 <(minor+1)。v 缺位先补 0 到 3 位语义：~0.11 → >=0.11.0 <0.12.0
+                    // >=v  and  <(minor+1)。v pad missing segments to three：~0.11 → >=0.11.0 <0.12.0
                     int[] b = Bump(Version.Numbers, 1);
                     bool? lo2 = CompareGe(candidate, Version);
                     bool? hi2 = CompareLt(candidate, FabricVersion.Parse(Join(b)));
@@ -119,7 +119,7 @@ namespace SuyunCraft
                 }
                 case "^":
                 {
-                    // ^x.y.z：首个非 0 位 +1；^0.0.z → 0.0.z+1
+                    // ^x.y.z：first non-zero segment +1；^0.0.z → 0.0.z+1
                     int idx = 0;
                     while (idx < Version.Numbers.Length - 1 && Version.Numbers[idx] == 0) idx++;
                     int[] b = Bump(Version.Numbers, idx);
@@ -136,7 +136,7 @@ namespace SuyunCraft
 
         static DependencyVerdict DependencyVerresolvedUnsatisfied() { return DependencyVerdict.Unsatisfied; }
         static string Join(int[] parts) { return string.Join(".", parts.Select(p => p.ToString()).ToArray()); }
-        // 上界：position 位 +1，其后全部清零（^1.2.3 → <2.0.0；~1.2.3 → <1.3.0）
+        // Upper bound: position +1，; zeros after it（^1.2.3 → <2.0.0；~1.2.3 → <1.3.0）
         static int[] Bump(int[] source, int position)
         {
             int[] r = new int[Math.Max(source.Length, position + 1)];
@@ -151,13 +151,13 @@ namespace SuyunCraft
         { int? x = FabricVersion.Compare(c, v); return x == null ? null : (bool?)(x.Value < 0); }
     }
 
-    /// <summary>一条依赖（depends/breaks/conflicts 的一个键）。Alternatives 为 OR，每个 alternative 内空格分隔 AND。</summary>
+    /// <summary>One dependency (a key of depends/breaks/conflicts). Alternatives are OR; terms inside an alternative are AND AND。</summary>
     sealed class ModDependency
     {
         public string Id;
         public readonly List<string> Alternatives = new List<string>();
         public bool ExplicitOptional;
-        public string Environment;                 // null=未声明；"*"/"client"/"server"
+        public string Environment;                 // null=undeclared;"*"/"client"/"server"
         public readonly List<List<FabricTerm>> ParsedAlternatives = new List<List<FabricTerm>>();
         public bool Parsed = true;
 
@@ -167,7 +167,7 @@ namespace SuyunCraft
 
     static class FabricPredicate
     {
-        // ">=1.0 <2.0" → terms AND；整个 alternative 解析失败 → 该条 Unknown。
+        // ">=1.0 <2.0" → terms AND；the whole alternative fails to parsefailed → that entry Unknown。
         public static List<FabricTerm> ParseAlternative(string text)
         {
             List<FabricTerm> terms = new List<FabricTerm>();
@@ -196,7 +196,7 @@ namespace SuyunCraft
             bool wildcard = false;
             if (Regex.IsMatch(rest, @"(^|\.)(x|X|\*)$")) { wildcard = true; rest = Regex.Replace(rest, @"(\.|^)(x|X|\*)$", ""); if (rest.Length == 0) return new FabricTerm { Any = true }; }
             FabricVersion v = FabricVersion.Parse(rest);
-            if (!v.Valid) return null;                       // 非标准 token（占位符、自造格式）→ Unknown，不猜。
+            if (!v.Valid) return null;                       // Nonstandard token (placeholder, custom format）→ Unknown，never guessed.
             if (wildcard && op.Length > 0 && op != "=") return null;
             return new FabricTerm { Op = op, Version = v, WildcardTrailing = wildcard };
         }
@@ -207,14 +207,14 @@ namespace SuyunCraft
             foreach (FabricTerm t in terms)
             {
                 DependencyVerdict v = t.Evaluate(candidate);
-                if (v == DependencyVerdict.Unsatisfied) return DependencyVerdict.Unsatisfied; // AND 短路
+                if (v == DependencyVerdict.Unsatisfied) return DependencyVerdict.Unsatisfied; // AND short-circuit
                 if (v == DependencyVerdict.Unknown) anyUnknown = true;
             }
             return anyUnknown ? DependencyVerdict.Unknown : DependencyVerdict.Satisfied;
         }
     }
 
-    // ---- 依赖条目与元数据模型 ----
+    // ---- dependencyDependency entries and the metadata model ----
     static class ModDependencyParser
     {
         public static ModDependency Parse(string id, object value)
@@ -241,7 +241,7 @@ namespace SuyunCraft
                         {
                             object[] va = Json.A(ver);
                             if (va != null) foreach (object o in va) { string a = o as string; if (a != null) alts.Add(a); }
-                            else if (ver == null) alts.Add("*");   // 对象形式省略 version = 任意
+                            else if (ver == null) alts.Add("*");   // object form omits version = any
                             else { dep.Parsed = false; alts.Add("*"); }
                         }
                     }
@@ -259,7 +259,7 @@ namespace SuyunCraft
         }
     }
 
-    // ---- 嵌套 jar 有界读取 ----
+    // ---- Bounded nested jar reading ----
     static class NestedJarReader
     {
         public const int MaxNestedJars = 32;
@@ -282,11 +282,11 @@ namespace SuyunCraft
                 string file = Json.S(o, "file", "");
                 if (file.Length == 0) continue;
                 count++;
-                if (count > MaxNestedJars) { issues.Add(new LaunchIssue("MOD_NESTED_LIMIT", parentFile + " 嵌套 jar 超过 " + MaxNestedJars + " 个，已截断。")); break; }
+                if (count > MaxNestedJars) { issues.Add(new LaunchIssue("MOD_NESTED_LIMIT", parentFile + " Nested jars exceed " + MaxNestedJars + " ; truncated.")); break; }
                 ZipArchiveEntry entry = archive.GetEntry(file);
-                if (entry == null) { issues.Add(new LaunchIssue("MOD_NESTED_JAR_MISSING", parentFile + " 声明的嵌套 jar 不存在：" + file)); continue; }
+                if (entry == null) { issues.Add(new LaunchIssue("MOD_NESTED_JAR_MISSING", parentFile + " declares declared nested jar missing：" + file)); continue; }
                 if (entry.Length > MaxNestedJarBytes || total + entry.Length > MaxTotalNestedBytes)
-                { issues.Add(new LaunchIssue("MOD_NESTED_LIMIT", parentFile + " 嵌套 jar 体积超限：" + file)); continue; }
+                { issues.Add(new LaunchIssue("MOD_NESTED_LIMIT", parentFile + " Nested jar size limit exceeded: " + file)); continue; }
                 total += entry.Length;
                 try
                 {
@@ -296,7 +296,7 @@ namespace SuyunCraft
                         ms.Position = 0;
                         using (var inner = new ZipArchive(ms, ZipArchiveMode.Read))
                         {
-                            // Fabric 只加载一层嵌套；嵌套内的 jars 字段不递归。
+                            // Fabric Only one nesting level; jars inside nested jars are not recursive。
                             ModMetadata mod = new FabricModMetadataReader().Read(inner);
                             if (mod != null) { mod.FileName = parentFile + "!" + file; mod.IsNested = true; nested.Add(mod); }
                         }
@@ -305,7 +305,7 @@ namespace SuyunCraft
                 catch (Exception ex)
                 {
                     if (ex is IOException || ex is InvalidDataException || ex is InvalidOperationException || ex is UnauthorizedAccessException)
-                        issues.Add(new LaunchIssue("MOD_NESTED_JAR_INVALID", parentFile + " 嵌套 jar 读取失败：" + file + "（" + ex.Message + "）"));
+                        issues.Add(new LaunchIssue("MOD_NESTED_JAR_INVALID", parentFile + " Nested jar readingfailed：" + file + "（" + ex.Message + "）"));
                     else throw;
                 }
             }
@@ -316,7 +316,7 @@ namespace SuyunCraft
         {
             ZipArchiveEntry e = archive.GetEntry(name);
             if (e == null) return null;
-            if (e.Length > 1024 * 1024) throw new InvalidDataException("模组元数据超过 1 MB");
+            if (e.Length > 1024 * 1024) throw new InvalidDataException("modmetadata exceeds 1 MB");
             using (var input = e.Open())
             using (var reader = new StreamReader(input, new UTF8Encoding(false, true)))
                 return reader.ReadToEnd().TrimStart('\uFEFF');
@@ -328,13 +328,13 @@ namespace SuyunCraft
             while ((n = source.Read(buffer, 0, buffer.Length)) > 0)
             {
                 copied += n;
-                if (copied > limit) throw new InvalidDataException("嵌套 jar 超过大小限制");
+                if (copied > limit) throw new InvalidDataException("Nested jars exceedsize limit");
                 target.Write(buffer, 0, n);
             }
         }
     }
 
-    // ---- Fabric Loader 依赖覆盖配置（config/fabric_loader_dependencies.json） ----
+    // ---- Fabric Loader dependencyoverrideconfig (config/fabric_loader_dependencies.json) ----
     static class LoaderOverrides
     {
         public static Dictionary<string, object> Load(string gameDirectory, List<LaunchIssue> issues)
@@ -344,7 +344,7 @@ namespace SuyunCraft
                 string path = FileSafety.Under(gameDirectory, "config/fabric_loader_dependencies.json");
                 if (!File.Exists(path)) return null;
                 var fi = new FileInfo(path);
-                if (fi.Length > 1024 * 1024) { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", "依赖覆盖文件超过 1 MB，已忽略。")); return null; }
+                if (fi.Length > 1024 * 1024) { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", "dependencyoverridefileexceeds 1 MB; ignored.")); return null; }
                 string text;
                 using (var input = File.OpenRead(path))
                 using (var output = new MemoryStream())
@@ -352,14 +352,14 @@ namespace SuyunCraft
                     byte[] buffer = new byte[8192]; int n;
                     while ((n = input.Read(buffer, 0, buffer.Length)) > 0)
                     {
-                        if (output.Length + n > 1024 * 1024) throw new InvalidDataException("依赖覆盖文件超过 1 MB");
+                        if (output.Length + n > 1024 * 1024) throw new InvalidDataException("dependencyoverridefileexceeds  1 MB");
                         output.Write(buffer, 0, n);
                     }
                     text = new UTF8Encoding(false, true).GetString(output.ToArray()).TrimStart('\uFEFF');
                 }
                 var root = Json.D(Json.Parse(text));
                 if (root == null || Json.L(root, "version", 0) != 1)
-                { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", "依赖覆盖文件格式未识别，已忽略。")); return null; }
+                { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", "dependencyoverridefileformat unrecognized; ignored。")); return null; }
                 var overrides = Json.D(Json.O(root, "overrides"));
                 if (overrides == null) return null;
                 return overrides;
@@ -367,7 +367,7 @@ namespace SuyunCraft
             catch (Exception ex)
             {
                 if (ex is IOException || ex is InvalidDataException || ex is UnauthorizedAccessException || ex is ArgumentException || ex is InvalidOperationException)
-                { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", "依赖覆盖文件读取失败，已忽略：" + ex.Message)); return null; }
+                { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", "dependencyoverridefileread failed; ignored：" + ex.Message)); return null; }
                 throw;
             }
         }
@@ -377,7 +377,7 @@ namespace SuyunCraft
             object value;
             if (overrides == null || !overrides.TryGetValue(mod.Id, out value)) return false;
             var entries = Json.D(value);
-            if (entries == null) { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", mod.Id + " 的依赖覆盖必须按模组和依赖类型分组，已忽略。")); return false; }
+            if (entries == null) { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", mod.Id + "  dependency overrides must be grouped by mod and dependency type; ignored。")); return false; }
             bool applied = false;
             foreach (string kind in new[] { "depends", "breaks", "conflicts" })
             {
@@ -399,20 +399,20 @@ namespace SuyunCraft
                         else result.Add(ModDependencyParser.Parse(dependency.Key, dependency.Value));
                     }
                 }
-                if (!valid) { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", mod.Id + " 的 " + kind + " 覆盖不是对象，已忽略。")); continue; }
+                if (!valid) { issues.Add(new LaunchIssue("MOD_OVERRIDE_INVALID", mod.Id + "   " + kind + " overridenot an object; ignored.")); continue; }
                 if (changed) { group.Clear(); group.AddRange(result); applied = true; }
             }
             return applied;
         }
     }
 
-    // ---- 解析引擎 ----
+    // ---- Resolution engine ----
     static class ModDependencyResolver
     {
         public static List<LaunchIssue> Resolve(List<ModMetadata> mods, string minecraftVersion, int javaMajor, Dictionary<string, object> overrides)
         {
             List<LaunchIssue> issues = new List<LaunchIssue>();
-            // 提供者表：id 与 provides 都指向提供该 ID 的模组
+            // Provider table: id and provides both point to mods providing that IDmod
             Dictionary<string, List<ModMetadata>> providers = new Dictionary<string, List<ModMetadata>>(StringComparer.Ordinal);
             foreach (ModMetadata mod in mods)
             {
@@ -427,7 +427,7 @@ namespace SuyunCraft
                 ResolveGroup(mod, mod.Breaks, "breaks", providers, minecraftVersion, javaMajor, issues, errorOnUnsatisfied: false);
                 ResolveGroup(mod, mod.Conflicts, "conflicts", providers, minecraftVersion, javaMajor, issues, errorOnUnsatisfied: false);
             }
-            if (overrideUsed) issues.Add(new LaunchIssue("MOD_OVERRIDE_APPLIED", "已按 fabric_loader_dependencies.json 覆盖部分依赖范围。"));
+            if (overrideUsed) issues.Add(new LaunchIssue("MOD_OVERRIDE_APPLIED", "Some dependency ranges overridden via fabric_loader_dependencies.json。"));
             return issues;
         }
 
@@ -445,12 +445,12 @@ namespace SuyunCraft
         {
             foreach (ModDependency dep in group)
             {
-                if (!dep.AppliesToClient()) continue;                     // 服务端限定依赖在客户端跳过
-                string rangeSource = "声明";
+                if (!dep.AppliesToClient()) continue;                     // Server-scoped dependencies skipped on the client
+                string rangeSource = "declares";
                 if (!dep.Parsed)
-                { issues.Add(new LaunchIssue("MOD_DEPENDENCY_UNKNOWN", mod.FileName + " 的 " + kind + " " + dep.Id + " 使用了无法解析的版本范围（" + JoinRaw(dep) + "），兼容性未知。")); continue; }
+                { issues.Add(new LaunchIssue("MOD_DEPENDENCY_UNKNOWN", mod.FileName + "   " + kind + " " + dep.Id + "  uses an unparseable version range (" + JoinRaw(dep) + "），compatibility unknown.")); continue; }
 
-                // 内建提供者：minecraft / java / fabricloader
+                // builtin providers：minecraft / java / fabricloader
                 List<ModMetadata> found;
                 providers.TryGetValue(dep.Id, out found);
                 bool builtin = false;
@@ -476,11 +476,11 @@ namespace SuyunCraft
                 if (found == null && !builtin)
                 {
                     if (kind != "depends" || dep.ExplicitOptional) continue;
-                    issues.Add(new LaunchIssue("MOD_DEPENDENCY_UNRESOLVED", mod.FileName + " 的依赖 " + dep.Id + " 未在模组包中找到；若由加载器或外部组件提供，请以游戏实际启动为准。"));
+                    issues.Add(new LaunchIssue("MOD_DEPENDENCY_UNRESOLVED", mod.FileName + " 's dependency " + dep.Id + " not found among mods; if the loader or an external component provides it, the game decides。"));
                     continue;
                 }
 
-                // OR 取最优：任一 alternative 满足即满足；否则存在 Unknown → Unknown；否则 Unsatisfied。
+                // OR Best of OR: satisfied if any alternative matches; otherwise Unknown → Unknown；otherwise Unsatisfied.
                 bool anySat = false, anyUnknown = false;
                 foreach (List<FabricTerm> alternative in dep.ParsedAlternatives)
                 {
@@ -493,15 +493,15 @@ namespace SuyunCraft
                 {
                     if (kind != "depends")
                         issues.Add(new LaunchIssue(kind == "breaks" ? "MOD_BREAKS_VIOLATED" : "MOD_CONFLICT_PRESENT",
-                            mod.FileName + " 声明 " + kind + " " + dep.Id + "（" + rangeText + "），当前安装满足该冲突条件。"));
+                            mod.FileName + " declares " + kind + " " + dep.Id + "（" + rangeText + "），the installed set matches this conflict。"));
                     continue;
                 }
                 if (anyUnknown)
-                    issues.Add(new LaunchIssue("MOD_DEPENDENCY_UNKNOWN", mod.FileName + " 的 " + kind + " " + dep.Id + "（" + rangeText + "，" + rangeSource + "）无法确定是否满足。"));
+                    issues.Add(new LaunchIssue("MOD_DEPENDENCY_UNKNOWN", mod.FileName + "   " + kind + " " + dep.Id + "（" + rangeText + "，" + rangeSource + "）satisfiability undetermined。"));
                 else if (errorOnUnsatisfied)
                 {
-                    if (dep.ExplicitOptional) continue;                   // 显式 optional 不满足时保持安静，与加载器一致
-                    issues.Add(new LaunchIssue("MOD_DEPENDENCY_VERSION_UNSATISFIED", mod.FileName + " 需要依赖 " + dep.Id + " " + rangeText + "（" + rangeSource + "），当前版本不满足。"));
+                    if (dep.ExplicitOptional) continue;                   // Explicitly optional entries stay silent when unsatisfied, matching the loader
+                    issues.Add(new LaunchIssue("MOD_DEPENDENCY_VERSION_UNSATISFIED", mod.FileName + "  requires dependency  " + dep.Id + " " + rangeText + "（" + rangeSource + "），not satisfied by the installed version。"));
                 }
             }
         }
@@ -511,7 +511,7 @@ namespace SuyunCraft
             if (builtinUnknown) return DependencyVerdict.Unknown;
             if (found != null)
             {
-                // 多个提供者：任一版本满足即满足
+                // Multiple providers: satisfied if any version matches
                 bool anyUnknown = false;
                 foreach (ModMetadata provider in found)
                 {

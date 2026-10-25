@@ -18,35 +18,56 @@ namespace SuyunCraft
 {
     static class Theme
     {
-        // 底层与应用表面
-        public static readonly System.Drawing.Color Bg = System.Drawing.Color.FromArgb(20, 22, 27);
-        public static readonly System.Drawing.Color Panel = System.Drawing.Color.FromArgb(27, 30, 37);
-        public static readonly System.Drawing.Color Card = System.Drawing.Color.FromArgb(33, 37, 45);
-        public static readonly System.Drawing.Color CardHover = System.Drawing.Color.FromArgb(42, 47, 57);
-        public static readonly System.Drawing.Color Field = System.Drawing.Color.FromArgb(24, 27, 33);
-        public static readonly System.Drawing.Color FieldDisabled = System.Drawing.Color.FromArgb(31, 34, 40);
-        public static readonly System.Drawing.Color Border = System.Drawing.Color.FromArgb(45, 50, 60);
-        public static readonly System.Drawing.Color BorderStrong = System.Drawing.Color.FromArgb(62, 69, 82);
+        // Base and surface: night-world palette - deep moss background + Layered stone panel
+        public static readonly System.Drawing.Color Bg = System.Drawing.Color.FromArgb(16, 20, 17);
+        public static readonly System.Drawing.Color Panel = System.Drawing.Color.FromArgb(22, 27, 23);
+        public static readonly System.Drawing.Color PanelDeep = System.Drawing.Color.FromArgb(18, 23, 19);
+        public static readonly System.Drawing.Color Card = System.Drawing.Color.FromArgb(30, 36, 31);
+        public static readonly System.Drawing.Color CardTop = System.Drawing.Color.FromArgb(35, 42, 36);
+        public static readonly System.Drawing.Color CardHover = System.Drawing.Color.FromArgb(41, 49, 42);
+        public static readonly System.Drawing.Color Field = System.Drawing.Color.FromArgb(18, 23, 19);
+        public static readonly System.Drawing.Color FieldDeep = System.Drawing.Color.FromArgb(12, 16, 13);
+        public static readonly System.Drawing.Color FieldDisabled = System.Drawing.Color.FromArgb(26, 31, 27);
+        public static readonly System.Drawing.Color Border = System.Drawing.Color.FromArgb(47, 56, 48);
+        public static readonly System.Drawing.Color BorderStrong = System.Drawing.Color.FromArgb(68, 80, 69);
 
-        // 文本
-        public static readonly System.Drawing.Color Text = System.Drawing.Color.FromArgb(233, 237, 244);
-        public static readonly System.Drawing.Color Muted = System.Drawing.Color.FromArgb(138, 147, 163);
-        public static readonly System.Drawing.Color TextDisabled = System.Drawing.Color.FromArgb(94, 102, 116);
-        public static readonly System.Drawing.Color LogText = System.Drawing.Color.FromArgb(201, 209, 217);
-        public static readonly System.Drawing.Color LogMuted = System.Drawing.Color.FromArgb(139, 148, 158);
+        // Block depth: lit top edge, shaded bottom (Minecraft GUI bevel）
+        public static readonly System.Drawing.Color BevelLight = System.Drawing.Color.FromArgb(30, 255, 255, 255);
+        public static readonly System.Drawing.Color BevelDark = System.Drawing.Color.FromArgb(78, 0, 0, 0);
+        public static readonly System.Drawing.Color Shadow = System.Drawing.Color.FromArgb(96, 0, 0, 0);
 
-        // 主题色
-        public static readonly System.Drawing.Color Accent = System.Drawing.Color.FromArgb(63, 185, 80);
-        public static readonly System.Drawing.Color AccentLight = System.Drawing.Color.FromArgb(95, 211, 111);
-        public static readonly System.Drawing.Color AccentDark = System.Drawing.Color.FromArgb(46, 139, 59);
-        public static readonly System.Drawing.Color Blue = System.Drawing.Color.FromArgb(59, 130, 246);
-        public static readonly System.Drawing.Color BlueLight = System.Drawing.Color.FromArgb(96, 165, 250);
-        public static readonly System.Drawing.Color BlueDark = System.Drawing.Color.FromArgb(37, 99, 235);
-        public static readonly System.Drawing.Color Danger = System.Drawing.Color.FromArgb(229, 83, 75);
-        public static readonly System.Drawing.Color DangerLight = System.Drawing.Color.FromArgb(244, 112, 105);
-        public static readonly System.Drawing.Color DangerDark = System.Drawing.Color.FromArgb(192, 57, 43);
-        public static readonly System.Drawing.Color Warning = System.Drawing.Color.FromArgb(227, 179, 65);
-        public static readonly System.Drawing.Color FocusRing = System.Drawing.Color.FromArgb(88, 166, 255);
+        // text
+        public static readonly System.Drawing.Color Text = System.Drawing.Color.FromArgb(238, 242, 234);
+        public static readonly System.Drawing.Color Muted = System.Drawing.Color.FromArgb(150, 160, 148);
+        public static readonly System.Drawing.Color TextDisabled = System.Drawing.Color.FromArgb(100, 110, 100);
+        public static readonly System.Drawing.Color LogText = System.Drawing.Color.FromArgb(198, 208, 196);
+        public static readonly System.Drawing.Color LogMuted = System.Drawing.Color.FromArgb(134, 146, 134);
+
+        // Primary: grass-block green
+        public static readonly System.Drawing.Color Accent = System.Drawing.Color.FromArgb(92, 184, 62);
+        public static readonly System.Drawing.Color AccentLight = System.Drawing.Color.FromArgb(126, 216, 92);
+        public static readonly System.Drawing.Color AccentDark = System.Drawing.Color.FromArgb(52, 118, 34);
+        public static readonly System.Drawing.Color AccentDeep = System.Drawing.Color.FromArgb(30, 70, 22);
+
+        // Secondary: torch gold (notices / highlighted data）
+        public static readonly System.Drawing.Color Gold = System.Drawing.Color.FromArgb(232, 176, 64);
+        public static readonly System.Drawing.Color GoldLight = System.Drawing.Color.FromArgb(248, 205, 108);
+        public static readonly System.Drawing.Color GoldDark = System.Drawing.Color.FromArgb(158, 114, 30);
+
+        // Cyan diamond (download / progress)）
+        public static readonly System.Drawing.Color Blue = System.Drawing.Color.FromArgb(46, 160, 152);
+        public static readonly System.Drawing.Color BlueLight = System.Drawing.Color.FromArgb(78, 196, 186);
+        public static readonly System.Drawing.Color BlueDark = System.Drawing.Color.FromArgb(26, 106, 100);
+
+        // Dirt (brand block sides)）
+        public static readonly System.Drawing.Color DirtLight = System.Drawing.Color.FromArgb(122, 90, 60);
+        public static readonly System.Drawing.Color DirtDark = System.Drawing.Color.FromArgb(92, 67, 45);
+
+        public static readonly System.Drawing.Color Danger = System.Drawing.Color.FromArgb(212, 74, 62);
+        public static readonly System.Drawing.Color DangerLight = System.Drawing.Color.FromArgb(236, 108, 94);
+        public static readonly System.Drawing.Color DangerDark = System.Drawing.Color.FromArgb(148, 44, 34);
+        public static readonly System.Drawing.Color Warning = System.Drawing.Color.FromArgb(232, 176, 64);
+        public static readonly System.Drawing.Color FocusRing = System.Drawing.Color.FromArgb(126, 216, 92);
 
         public static readonly System.Drawing.Font Ui = new System.Drawing.Font("Microsoft YaHei UI", 9.75f);
         public static readonly System.Drawing.Font UiBold = new System.Drawing.Font("Microsoft YaHei UI", 9.75f, System.Drawing.FontStyle.Bold);
@@ -54,11 +75,12 @@ namespace SuyunCraft
         public static readonly System.Drawing.Font Caption = new System.Drawing.Font("Microsoft YaHei UI", 8.75f);
         public static readonly System.Drawing.Font NavBold = new System.Drawing.Font("Microsoft YaHei UI", 10.5f, System.Drawing.FontStyle.Bold);
         public static readonly System.Drawing.Font TitleBold = new System.Drawing.Font("Microsoft YaHei UI", 12.5f, System.Drawing.FontStyle.Bold);
-        public static readonly System.Drawing.Font HeadingBold = new System.Drawing.Font("Microsoft YaHei UI", 13f, System.Drawing.FontStyle.Bold);
-        public static readonly System.Drawing.Font LaunchBold = new System.Drawing.Font("Microsoft YaHei UI", 15f, System.Drawing.FontStyle.Bold);
+        public static readonly System.Drawing.Font HeadingBold = new System.Drawing.Font("Microsoft YaHei UI", 14.5f, System.Drawing.FontStyle.Bold);
+        public static readonly System.Drawing.Font LaunchBold = new System.Drawing.Font("Microsoft YaHei UI", 15.5f, System.Drawing.FontStyle.Bold);
+        public static readonly System.Drawing.Font StatBold = new System.Drawing.Font("Microsoft YaHei UI", 13f, System.Drawing.FontStyle.Bold);
         public static readonly System.Drawing.Font Console = new System.Drawing.Font("Consolas", 9f);
 
-        /// <summary>把标准按钮升级为自绘按钮；传入底色可推断语义类型。</summary>
+        /// <summary>Upgrade standard buttons to owner-drawn; the back color implies the semantic type.</summary>
         public static void StyleButton(Button b, System.Drawing.Color? back)
         {
             UiButton ui = b as UiButton;
@@ -114,14 +136,14 @@ namespace SuyunCraft
         UiPage homePage, dlPage, setPage;
         UiLabel statusBar;
 
-        // 页面切换过渡
+        // Page transition
         UiPage activePage;
         UiPage animPrev, animNext;
         Rectangle pageBase;
         System.Windows.Forms.Timer pageAnim;
         DateTime animStart;
-        const int PageShift = 20;      // 过渡位移（逻辑像素）
-        const int PageFadeMs = 260;    // 过渡时长（毫秒）
+        const int PageShift = 20;      // Transition offset (logical px）
+        const int PageFadeMs = 260;    // Transition duration (ms）
 
         // home
         UiTextField txtUser;
@@ -131,7 +153,7 @@ namespace SuyunCraft
         UiCheckBox chkAutoMem, chkIsolation;
         UiLogView txtGameLog;
         Process gameProc;
-        readonly ConcurrentQueue<string> logQueue = new ConcurrentQueue<string>();
+        readonly GameLogBuffer logQueue = new GameLogBuffer();
         System.Windows.Forms.Timer logTimer;
 
         // download
@@ -158,7 +180,7 @@ namespace SuyunCraft
         {
             Ui.InitScale();
             cfg = Config.Load();
-            Text = "溯昀启动器 SuyunCraft v" + Program.AppVersion;
+            Text = "SuyunCraft Launcher SuyunCraft v" + Program.AppVersion;
             StartPosition = FormStartPosition.CenterScreen;
             ClientSize = new System.Drawing.Size(1000, 660);
             MinimumSize = new System.Drawing.Size(940, 600);
@@ -166,6 +188,9 @@ namespace SuyunCraft
             ForeColor = Theme.Text;
             Font = Theme.Ui;
             KeyPreview = true;
+            KeyDown += delegate(object sender, KeyEventArgs e) {
+                if (e.KeyCode == Keys.Escape && operationBusy) { CancelOperation(); e.Handled = true; e.SuppressKeyPress = true; }
+            };
             AutoScaleMode = AutoScaleMode.None;
             DoubleBuffered = true;
 
@@ -197,7 +222,7 @@ namespace SuyunCraft
 
         void BuildLayout()
         {
-            // 左侧导航
+            // left nav
             navPane = new Panel();
             navPane.Dock = DockStyle.Left;
             navPane.Width = 190;
@@ -206,6 +231,8 @@ namespace SuyunCraft
             {
                 using (Pen p = new Pen(Theme.Border))
                     e.Graphics.DrawLine(p, navPane.Width - 1, 0, navPane.Width - 1, navPane.Height);
+                using (Pen p = new Pen(UiKit.Alpha(System.Drawing.Color.White, 7)))
+                    e.Graphics.DrawLine(p, navPane.Width - 2, 0, navPane.Width - 2, navPane.Height);
             };
             Controls.Add(navPane);
 
@@ -213,9 +240,9 @@ namespace SuyunCraft
             brand.SetBounds(0, 0, 190, 92);
             navPane.Controls.Add(brand);
 
-            navHome = NavItem("主页", UiIcon.Home, 112);
-            navDownload = NavItem("下载", UiIcon.Download, 160);
-            navSettings = NavItem("设置", UiIcon.Settings, 208);
+            navHome = NavItem("Home", UiIcon.Home, 112);
+            navDownload = NavItem("Download", UiIcon.Download, 160);
+            navSettings = NavItem("Settings", UiIcon.Settings, 208);
             navPane.Controls.Add(navHome);
             navPane.Controls.Add(navDownload);
             navPane.Controls.Add(navSettings);
@@ -225,7 +252,7 @@ namespace SuyunCraft
             navSettings.Click += delegate { SwitchPage("set"); };
 
             Label versionBadge = new UiLabel();
-            versionBadge.Text = "v" + Program.AppVersion + " · 离线启动";
+            versionBadge.Text = "v" + Program.AppVersion + " · offlineLaunch";
             versionBadge.ForeColor = Theme.TextDisabled;
             versionBadge.Font = Theme.Caption;
             versionBadge.TextAlign = System.Drawing.ContentAlignment.MiddleCenter;
@@ -233,7 +260,7 @@ namespace SuyunCraft
             navPane.Resize += delegate { versionBadge.SetBounds(0, navPane.Height - Ui.Px(48), navPane.Width, Ui.Px(30)); };
             versionBadge.SetBounds(0, navPane.Height - Ui.Px(48), navPane.Width, Ui.Px(30));
 
-            // 内容区
+            // content area
             content = new Panel();
             content.Dock = DockStyle.Fill;
             content.BackColor = Theme.Bg;
@@ -241,7 +268,7 @@ namespace SuyunCraft
             Controls.Add(content);
             content.BringToFront();
 
-            // 状态栏
+            // status bar
             statusBar = new UiLabel();
             statusBar.Dock = DockStyle.Bottom;
             statusBar.Height = 28;
@@ -249,12 +276,16 @@ namespace SuyunCraft
             statusBar.BlendBackground = false;
             statusBar.ForeColor = Theme.Muted;
             statusBar.TextAlign = System.Drawing.ContentAlignment.MiddleLeft;
-            statusBar.Padding = new Padding(16, 0, 0, 0);
-            statusBar.Text = "就绪";
+            statusBar.Padding = new Padding(26, 0, 0, 0);
+            statusBar.Text = "Ready";
             statusBar.Paint += delegate (object sender, PaintEventArgs e)
             {
                 using (Pen p = new Pen(Theme.Border))
                     e.Graphics.DrawLine(p, 0, 0, statusBar.Width, 0);
+                // Left status cube: like a small lit grass block
+                Rectangle dot = new Rectangle(13, (statusBar.Height - 6) / 2, 6, 6);
+                UiKit.FillRound(e.Graphics, dot, 1, Theme.Accent);
+                UiKit.Bevel(e.Graphics, dot, 1, UiKit.Alpha(System.Drawing.Color.White, 90), UiKit.Alpha(System.Drawing.Color.Black, 60));
             };
             Controls.Add(statusBar);
 
@@ -270,10 +301,10 @@ namespace SuyunCraft
         }
 
         /// <summary>
-        /// 按当前显示器 DPI 把整棵控件树放大一次。
-        /// PerMonitorV2 下 WinForms 不会自动缩放控件边界（运行时会改写 AutoScaleDimensions，
-        /// 缩放系数恒为 1），而 GDI 字体已被系统按 DPI 放大，因此这里必须手动缩放一次，
-        /// 否则文字会被裁切、控件会互相错位。缩放期间屏蔽布局，避免中途重排留下残影。
+        /// Scale the whole control tree once for the current monitor DPI.
+        /// PerMonitorV2 WinForms does not rescale control bounds (AutoScaleDimensions is rewritten at runtime
+        /// and the factor is pinned to 1), while GDI fonts are already DPI-scaled - so scale manually once,
+        /// or text clips and controls misalign. Suspend layout while scaling to avoid mid-way artifacts.
         /// </summary>
         void ApplyDpiScale()
         {
@@ -284,12 +315,32 @@ namespace SuyunCraft
                 try { Scale(new System.Drawing.SizeF(k, k)); }
                 finally { suppressLayout = false; }
             }
-            ClientSize = new System.Drawing.Size(Ui.Px(1000), Ui.Px(660));
-            MinimumSize = new System.Drawing.Size(Ui.Px(940), Ui.Px(600));
-            content.Padding = new Padding(Ui.Px(26), Ui.Px(20), Ui.Px(26), Ui.Px(12));
+
+            // The design size 1000x660 becomes 1250x825 at 125%,
+            // overshooting small screens; the launch button would leave the screen.
+            // Clamp to the working area once so the whole window stays visible.
+            int wantW = Ui.Px(1000);
+            int wantH = Ui.Px(660);
+            try
+            {
+                System.Drawing.Rectangle work = Screen.PrimaryScreen.WorkingArea;
+                wantW = Math.Min(wantW, Math.Max(Ui.Px(560), work.Width - Ui.Px(16)));
+                wantH = Math.Min(wantH, Math.Max(Ui.Px(420), work.Height - Ui.Px(44)));
+            }
+            catch { }
+
+            // Relax MinimumSize first, otherwise ClientSize gets clamped by the old value
+            MinimumSize = new System.Drawing.Size(Ui.Px(480), Ui.Px(360));
+            ClientSize = new System.Drawing.Size(wantW, wantH);
+            int frameW = Math.Max(0, Width - ClientSize.Width);
+            int frameH = Math.Max(0, Height - ClientSize.Height);
+            MinimumSize = new System.Drawing.Size(
+                Math.Min(Ui.Px(940), ClientSize.Width) + frameW,
+                Math.Min(Ui.Px(600), ClientSize.Height) + frameH);
+            content.Padding = new Padding(Ui.Px(24), Ui.Px(18), Ui.Px(24), Ui.Px(10));
         }
 
-        /// <summary>按内容区可用区域摆放三个页面。</summary>
+        /// <summary>Layout the three pages within the content area。</summary>
         void LayoutPages()
         {
             if (suppressLayout) return;
@@ -312,8 +363,8 @@ namespace SuyunCraft
         }
 
         /// <summary>
-        /// 切换页面，并播放横向推移过渡。
-        /// 新旧页面同时可见、互相擦除（wipe），页头同时淡入并轻微下落。
+        /// Switch the page with a horizontal wipe transition.
+        /// Old and new pages stay visible, wiping each other; the header fades in with a slight drop.
         /// </summary>
         void SwitchPage(string key)
         {
@@ -332,7 +383,7 @@ namespace SuyunCraft
 
             if (prev == null)
             {
-                // 首次显示不做过渡。
+                // No transition on first show。
                 target.HeaderFade = 1f;
                 target.HeaderShift = 0;
                 return;
@@ -344,7 +395,7 @@ namespace SuyunCraft
         {
             if (animPrev != null)
             {
-                // 上一次过渡尚未播完：先把旧页归位并隐藏，避免它残留在新页下方。
+                // Previous transition still running: settle and hide the old page first。
                 animPrev.Visible = false;
                 animPrev.SetBounds(pageBase.X, pageBase.Y, pageBase.Width, pageBase.Height);
                 animPrev.HeaderFade = 1f;
@@ -363,7 +414,7 @@ namespace SuyunCraft
             pageAnim.Start();
         }
 
-        /// <summary>立即结束过渡，把页面归位。</summary>
+        /// <summary>Finish the transition immediately and snap pages into place。</summary>
         void StopPageAnim()
         {
             if (pageAnim != null) pageAnim.Stop();
@@ -388,7 +439,7 @@ namespace SuyunCraft
             float t = (float)(ms / PageFadeMs);
             bool done = t >= 1f;
             if (done) t = 1f;
-            // ease-in-out cubic：起步与收尾都慢，中段最快，推移更有质感
+            // ease-in-out cubic：Slow start and end, fast middle - feels more physical
             float e = t < 0.5f
                 ? 4f * t * t * t
                 : 1f - (float)Math.Pow(-2f * t + 2f, 3) / 2f;
@@ -409,7 +460,7 @@ namespace SuyunCraft
         protected override void OnShown(EventArgs e)
         {
             base.OnShown(e);
-            // 缩放后强制整窗重绘一次，避免残留旧位置的画面。
+            // Force a full repaint after scaling to avoid stale pixels。
             Invalidate(true);
             Refresh();
         }
@@ -422,8 +473,8 @@ namespace SuyunCraft
         }
 
         /// <summary>
-        /// 窗口被拖到不同 DPI 的显示器时：刷新缩放系数并重新排版。
-        /// 框架通常已经按比例放大了控件树，若没有（例如关闭了自动重排）则这里手动补一次。
+        /// When dragged to another monitor: refresh the scale factor and re-layout.
+        /// The framework usually scales the tree; if not (e.g. autoscaling disabled) we scale manually once.
         /// </summary>
         protected override void OnDpiChanged(DpiChangedEventArgs e)
         {
@@ -462,7 +513,7 @@ namespace SuyunCraft
             }
         }
 
-        // 子控件的句柄在父窗口句柄创建之后才陆续生成，必须在各自 HandleCreated 时再套用深色主题。
+        // Child handles appear after the parent handle; apply the dark theme in each HandleCreated。
         static void ThemeControl(Control c, params string[] themes)
         {
             Action apply = delegate
@@ -536,7 +587,7 @@ namespace SuyunCraft
                 for (int i = 0; i < vers.Count; i++) if (vers[i].Id == cfg.LastVersion) { idx = i; break; }
                 cmbVersion.SelectedIndex = idx;
             }
-            statusBar.Text = "本地版本 " + vers.Count + " 个 · 游戏目录 " + cfg.GameDir;
+            statusBar.Text = "localversion " + vers.Count + "   · gamedirectory " + cfg.GameDir;
             RefreshSaveInstances();
         }
 
@@ -554,20 +605,35 @@ namespace SuyunCraft
         {
             operationBusy = busy;
             if (IsDisposed) return;
-            homePage.Enabled = !busy;
+            foreach (Control control in homePage.Controls) control.Enabled = !busy || control.Contains(btnLaunch);
             setPage.Enabled = !busy;
             btnInstall.Enabled = !busy;
+            bool running = gameProc != null && !gameProc.HasExited;
+            btnLaunch.Enabled = busy ? launchCancellation != null && !launchCancellation.IsCancellationRequested : !running;
+            btnLaunch.Text = busy ? "Cancelaction" : running ? "Game running" : "Launchgame";
+            btnLaunch.Icon = busy || running ? UiIcon.Stop : UiIcon.Play;
+            btnCancelDl.Enabled = busy && launchCancellation != null && !launchCancellation.IsCancellationRequested;
             UpdateInstanceControls();
+        }
+
+        void CancelOperation()
+        {
+            if (launchCancellation != null) launchCancellation.Cancel();
+            if (mgr != null) mgr.Cancelled = true;
+            if (!operationBusy) return;
+            btnCancelDl.Enabled = false;
+            btnLaunch.Enabled = false;
+            statusBar.Text = "Cancelling; wait for the current file operation to finish…";
         }
 
         async void LaunchGame()
         {
             if (operationBusy) return;
-            if (gameProc != null && !gameProc.HasExited) { MessageBox.Show("游戏已在运行中。"); return; }
+            if (gameProc != null && !gameProc.HasExited) { MessageBox.Show("The game is already running."); return; }
             string user = txtUser.Text.Trim();
             if (user.Length == 0) user = "Player";
             string version = SelectedVersion();
-            if (version == null) { SwitchPage("dl"); MessageBox.Show("请先安装并选择一个版本。"); return; }
+            if (version == null) { SwitchPage("dl"); MessageBox.Show("Install and select a version firstversion。"); return; }
             bool isolation = chkIsolation.Checked;
             int memory = trackMem.Value;
             var service = new LaunchPreparationService(download: CreateDownloadCallback());
@@ -576,23 +642,28 @@ namespace SuyunCraft
             try
             {
                 SetBusy(true);
-                VerifyStore.Load();   // 持久校验缓存：命中的文件跳过哈希（P2）
                 cfg.UserName = user; cfg.MemoryGb = memory; cfg.AutoMemory = chkAutoMem.Checked;
                 cfg.VersionIsolation = isolation; cfg.LastVersion = version; cfg.Save();
-                environmentLease = GameDirectories.Acquire(cfg, version);
+                statusBar.Text = "Load the verify cache and check instance locks…";
+                var snapshot = cfg.Snapshot();
+                environmentLease = await Task.Run(() => {
+                    VerifyStore.Load();
+                    launchCancellation.Token.ThrowIfCancellationRequested();
+                    return GameDirectories.Acquire(snapshot, version);
+                });
                 var progress = new Progress<LaunchProgress>(p => {
-                    if (!IsDisposed && operationBusy) statusBar.Text = p.Message;
+                    if (!IsDisposed && operationBusy && launchCancellation != null && !launchCancellation.IsCancellationRequested) statusBar.Text = p.Message;
                 });
                 var prepared = await service.PrepareAsync(cfg, version, progress, launchCancellation.Token);
                 var plan = prepared.Plan;
                 if (IsDisposed) return;
                 cfg.JavaPath = plan.JavaExe; txtJava.Text = plan.JavaExe; lblJava.Text = "Java：" + plan.JavaExe; cfg.Save();
-                foreach (var issue in prepared.Report.Issues) AppendLog("[预检 " + issue.Code + "] " + issue.Message);
-                AppendLog("[启动器] 准备耗时 " + prepared.Report.PreparationMilliseconds + " ms（不含游戏初始化）");
+                foreach (var issue in prepared.Report.Issues) AppendLog("[preflight " + issue.Code + "] " + issue.Message);
+                AppendLog("[Launch ] preparation took " + prepared.Report.PreparationMilliseconds + " ms（game init excluded）");
                 var args = new List<string>(plan.JvmArgs);
                 args.Add(plan.MainClass); args.AddRange(plan.GameArgs);
                 string arguments = CommandLine.Join(args);
-                if (arguments.Length > 30000) throw new InvalidOperationException("启动参数过长，请缩短游戏目录路径或减少重复依赖。");
+                if (arguments.Length > 30000) throw new InvalidOperationException("LaunchArguments too long; shorten the game directory or reduce duplicate dependencies.");
                 var info = new ProcessStartInfo(plan.JavaExe, arguments) {
                     WorkingDirectory = plan.WorkingDir, UseShellExecute = false, CreateNoWindow = true,
                     RedirectStandardError = cfg.CaptureGameLog, RedirectStandardOutput = cfg.CaptureGameLog
@@ -608,8 +679,8 @@ namespace SuyunCraft
                     runningLease.Dispose();
                     try { BeginInvoke((MethodInvoker)delegate {
                         FlushLog(true);
-                        statusBar.Text = "游戏已退出（代码 " + process.ExitCode + "）";
-                        btnLaunch.Text = "启动游戏";
+                        statusBar.Text = "Game exited (code " + process.ExitCode + "）";
+                        btnLaunch.Text = "Launchgame";
                         btnLaunch.Icon = UiIcon.Play;
                         btnLaunch.Enabled = !operationBusy;
                         UpdateInstanceControls();
@@ -618,62 +689,73 @@ namespace SuyunCraft
                 };
                 launchCancellation.Token.ThrowIfCancellationRequested();
                 // A failed start must not leave an unstarted Process in gameProc: HasExited would throw on the next click.
-                try { if (!process.Start()) throw new InvalidOperationException("无法创建 Java 进程"); }
+                try { if (!process.Start()) throw new InvalidOperationException("Failed to create the Java process"); }
                 catch { process.Dispose(); throw; }
                 environmentLease = null; // The process exit callback owns the lease from here.
                 if (gameProc != null) gameProc.Dispose();
                 gameProc = process;
-                btnLaunch.Text = "游戏运行中";
+                btnLaunch.Text = "Game running";
                 btnLaunch.Icon = UiIcon.Stop;
                 btnLaunch.Enabled = false;
                 if (cfg.CaptureGameLog) { process.BeginOutputReadLine(); process.BeginErrorReadLine(); }
-                statusBar.Text = "游戏已启动（PID " + process.Id + "）· " + version;
-                AppendLog("[启动器] 命令: " + plan.CommandText);
-                AppendLog("[启动器] 游戏目录: " + plan.WorkingDir);
+                statusBar.Text = "gameLaunched (PID  " + process.Id + "）· " + version;
+                AppendLog("[Launch ] Command: " + plan.CommandText);
+                AppendLog("[Launch ] gamedirectory: " + plan.WorkingDir);
             }
-            catch (OperationCanceledException) { if (!IsDisposed) statusBar.Text = "已取消"; }
-            catch (Exception ex) { if (!IsDisposed) { statusBar.Text = "启动失败"; MessageBox.Show(ex.Message, "启动失败"); } }
+            catch (OperationCanceledException) { if (!IsDisposed) statusBar.Text = "Cancelled"; }
+            catch (Exception ex) { if (!IsDisposed) { statusBar.Text = "Launchfailed"; MessageBox.Show(ex.Message, "Launchfailed"); } }
             finally
             {
                 if (environmentLease != null) environmentLease.Dispose();
-                try
-                {
-                    if (service.LastReport != null)
+                FinishOperationAsync(service.LastReport);
+            }
+        }
+
+        async void FinishOperationAsync(LaunchReport report = null)
+        {
+            try
+            {
+                await Task.Run(() => {
+                    if (report != null)
                     {
-                        string reportPath = Path.Combine(Config.BaseDir, "logs", "launch-preparation-latest.json");
-                        service.LastReport.Save(reportPath);
-                        AppendLog("[启动器] 启动准备报告：" + reportPath);
+                        try { report.Save(Path.Combine(Config.BaseDir, "logs", "launch-preparation-latest.json")); }
+                        catch (Exception ex) { AppendLog("[Launch ] Failed to save report: " + ex.Message); }
                     }
-                }
-                catch (Exception ex) { AppendLog("[启动器] 报告保存失败：" + ex.Message); }
-                try { VerifyStore.Save(); } catch { }
-                launchCancellation.Dispose(); launchCancellation = null;
+                    VerifyStore.Save();
+                });
+            }
+            catch (Exception ex) { AppendLog("[Launch ] cacheSavefailed：" + ex.Message); }
+            finally
+            {
+                if (launchCancellation != null) { launchCancellation.Dispose(); launchCancellation = null; }
                 SetBusy(false);
             }
         }
 
 
-
         void AppendLog(string line)
         {
-            logQueue.Enqueue(line);
+            logQueue.Append(line);
         }
 
         void FlushLog(bool flushAll)
         {
-            var lines = new List<string>();
-            string line;
-            while ((flushAll || lines.Count < 2000) && logQueue.TryDequeue(out line)) lines.Add(line);
-            if (lines.Count == 0) return;
-            txtGameLog.AppendText(string.Join("\r\n", lines) + "\r\n");
+            string batch = logQueue.Drain(flushAll);
+            if (batch.Length == 0) return;
+            txtGameLog.AppendText(batch);
             if (txtGameLog.TextLength > 200000) txtGameLog.Text = txtGameLog.Text.Substring(txtGameLog.TextLength - 100000);
             try
             {
                 string logDir = Path.Combine(Config.BaseDir, "logs");
                 Directory.CreateDirectory(logDir);
-                var sb = new StringBuilder();
-                foreach (string l in lines) sb.Append(DateTime.Now.ToString("HH:mm:ss ")).Append(l).Append("\r\n");
-                File.AppendAllText(Path.Combine(logDir, "game-" + DateTime.Now.ToString("yyyy-MM-dd") + ".log"), sb.ToString(), Encoding.UTF8);
+                string path = Path.Combine(logDir, "game-" + DateTime.Now.ToString("yyyy-MM-dd") + ".log");
+                if (File.Exists(path) && new FileInfo(path).Length > 10L * 1024 * 1024)
+                {
+                    string previous = path + ".previous";
+                    if (File.Exists(previous)) File.Delete(previous);
+                    File.Move(path, previous);
+                }
+                File.AppendAllText(path, DateTime.Now.ToString("HH:mm:ss ") + batch, Encoding.UTF8);
             }
             catch { }
         }

@@ -75,7 +75,7 @@ namespace SuyunCraft
         public static async Task EnsureAsync(string root, string id, Dictionary<string, object> metadata,
             Func<List<DlItem>, CancellationToken, Task> download, CancellationToken cancellation)
         {
-            var cache = new FileSafety.VerifyCache();
+            var cache = new FileSafety.VerifyCache { Cancellation = cancellation };
             for (int pass = 0; pass < 4; pass++)
             {
                 cancellation.ThrowIfCancellationRequested();
@@ -87,7 +87,7 @@ namespace SuyunCraft
                 await download(missing, cancellation).ConfigureAwait(false);
                 cache.MatchResults.Clear(); // Do not reuse pre-write observations after mutating the filesystem.
             }
-            throw new InvalidDataException("下载后仍缺少资源，请重新安装该版本");
+            throw new InvalidDataException("Downloadstill missing after download; reinstall this version");
         }
     }
 
@@ -111,7 +111,7 @@ namespace SuyunCraft
         {
             this.loader = loader ?? new MinecraftLoaderDetector();
             this.checks = (checks ?? new ILaunchPreflightCheck[] { new ModPreflightCheck() }).ToArray();
-            this.selectJava = selectJava ?? JavaUtil.Select;
+            this.selectJava = selectJava;
             this.download = download;
         }
 
@@ -123,16 +123,16 @@ namespace SuyunCraft
             var total = Stopwatch.StartNew();
             try
             {
-                var metadata = await Stage(LaunchStage.Metadata, "读取版本信息…", () => {
+                var metadata = await Stage(LaunchStage.Metadata, "Reading version metadata…", () => {
                     FileSafety.Id(version);
                     if (!System.Text.RegularExpressions.Regex.IsMatch(cfg.UserName ?? "", @"\A[A-Za-z0-9_]{1,16}\z"))
-                        throw new ArgumentException("离线玩家名须为 1–16 位英文字母、数字或下划线");
+                        throw new ArgumentException("Offline player name must be 1-16 letters, digits or underscores");
                     return LaunchPlanner.LoadMerged(cfg.GameDir, version);
                 }, progress, cancellation).ConfigureAwait(false);
                 LastReport.Loader = loader.Detect(metadata);
                 LastReport.RequiredJava = (int)Json.L(Json.O(metadata, "javaVersion"), "majorVersion", 8);
-                string gameDirectory = GameDirectories.Resolve(cfg, version);
-                await Stage(LaunchStage.Preflight, "检查模组元数据…", () => {
+                await Stage(LaunchStage.Preflight, "Checking mod metadata…", () => {
+                    string gameDirectory = GameDirectories.Resolve(cfg, version);
                     SaveIsolation.CheckWorlds(gameDirectory, !string.IsNullOrEmpty(cfg.SaveInstanceId), true);
                     var context = new LaunchContext(version, gameDirectory, LastReport.Loader);
                     string mcVersion = ModManagement.GameVersion(metadata, version);
@@ -149,8 +149,8 @@ namespace SuyunCraft
                     if (errors.Length > 0) throw new InvalidDataException(string.Join(Environment.NewLine, errors.Select(i => i.Message)));
                     return true;
                 }, progress, cancellation).ConfigureAwait(false);
-                cfg.JavaPath = await Stage(LaunchStage.Java, "选择 Java…", () => selectJava(cfg.JavaPath, LastReport.RequiredJava), progress, cancellation).ConfigureAwait(false);
-                Notify(progress, LaunchStage.Files, "校验并补齐游戏资源…");
+                cfg.JavaPath = await Stage(LaunchStage.Java, "Selecting Java…", () => selectJava == null ? JavaUtil.Select(cfg.JavaPath, LastReport.RequiredJava, cancellation) : selectJava(cfg.JavaPath, LastReport.RequiredJava), progress, cancellation).ConfigureAwait(false);
+                Notify(progress, LaunchStage.Files, "Verifying and completing game files…");
                 LastReport.FailedStage = LaunchStage.Files.ToString();
                 var filesWatch = Stopwatch.StartNew();
                 try
@@ -164,10 +164,10 @@ namespace SuyunCraft
                     }), cancellation).ConfigureAwait(false);
                 }
                 finally { LastReport.StageMilliseconds["Files"] = filesWatch.ElapsedMilliseconds; }
-                var plan = await Stage(LaunchStage.Plan, "构建启动参数…", () => LaunchPlanner.Build(cfg, metadata, version,
-                    cfg.MemoryGb, cfg.UserName, cfg.VersionIsolation, cfg.WindowWidth, cfg.WindowHeight), progress, cancellation).ConfigureAwait(false);
+                var plan = await Stage(LaunchStage.Plan, "Building launch arguments…", () => LaunchPlanner.Build(cfg, metadata, version,
+                    cfg.MemoryGb, cfg.UserName, cfg.VersionIsolation, cfg.WindowWidth, cfg.WindowHeight, true, cancellation), progress, cancellation).ConfigureAwait(false);
                 LastReport.Status = "ready"; LastReport.FailedStage = null;
-                Notify(progress, LaunchStage.Ready, "启动准备完成");
+                Notify(progress, LaunchStage.Ready, "LaunchPreparation done");
                 return new PreparedLaunch { Plan = plan, Report = LastReport };
             }
             catch (OperationCanceledException) { LastReport.Status = "cancelled"; throw; }

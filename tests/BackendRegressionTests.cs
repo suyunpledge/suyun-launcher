@@ -49,7 +49,7 @@ namespace SuyunCraft
             var issues = Scan(mods);
             check(!issues.Any(i => i.BlocksLaunch), "Unresolved dependency is conservative and nonblocking");
             check(issues.Count(i => i.Code == "MOD_DEPENDENCY_UNRESOLVED") == 1 && issues.Any(i => i.Message.Contains("missing")), "Provided aliases satisfy ID lookup");
-            // 1.4：depends.helper_alias="*" 现在被真正解析（helper 通过 provides 别名提供，判 Satisfied），不再报 PARTIAL
+            // 1.4：depends.helper_alias="*" now genuinely resolved (helper provides the alias; Satisfied); no longer reports PARTIAL
             check(!issues.Any(i => i.Code == "MOD_RESOLUTION_PARTIAL" && i.Message.Contains("helper")), "Wildcard dependency on provided alias resolves silently");
             Jar(mods, "example-copy", "{\"schemaVersion\":1,\"id\":\"example\",\"version\":\"2\"}");
             check(Scan(mods).Any(i => i.Code == "MOD_DUPLICATE_ID"), "Duplicate top-level Fabric IDs reported");
