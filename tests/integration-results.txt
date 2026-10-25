@@ -86,5 +86,5 @@ PASS: Live verified Windows natives 26.3
 PASS: Live version launch placeholders 26.3
 PASS: Live Fabric profile and parent client
 PASS: Live Adoptium SHA256 metadata
-PASS: Installed Java probe C:\Users\匡溯昀\AppData\Roaming\.minecraft\runtime\java-runtime-delta\bin\javaw.exe
-RESULT: 89 checks passed. Fixtures: C:\Users\匡溯昀\Desktop\本地工作流\SuyunCraft\tests\artifacts\20261021-195604-2768af3ba9b7459ea2d8ada85b5a6ec1
+PASS: Installed Java probe C:\Users\%USERPROFILE%\AppData\Roaming\.minecraft\runtime\java-runtime-delta\bin\javaw.exe
+RESULT: 89 checks passed. Fixtures: C:\Users\%USERPROFILE%\Desktop\本地工作流\SuyunCraft\tests\artifacts\20261021-195604-2768af3ba9b7459ea2d8ada85b5a6ec1

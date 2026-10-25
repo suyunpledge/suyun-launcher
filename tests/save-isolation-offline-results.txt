@@ -200,4 +200,4 @@ PASS: Failed download preserves destination and progress
 PASS: Failed download leaves no partial files
 PASS: Pre-cancelled manager completes
 PASS: Concurrent JSON parsing
-RESULT: 202 checks passed. Fixtures: C:\Users\匡溯昀\Desktop\本地工作流\SuyunCraft\tests\artifacts\20261023-232902-9cb5aacdc8034f1ab37191849140f909
+RESULT: 202 checks passed. Fixtures: C:\Users\%USERPROFILE%\Desktop\本地工作流\SuyunCraft\tests\artifacts\20261023-232902-9cb5aacdc8034f1ab37191849140f909

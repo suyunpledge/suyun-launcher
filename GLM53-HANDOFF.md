@@ -121,7 +121,7 @@ var prepared = await service.PrepareAsync(config, versionId, progress, cancellat
 ## 验证与交付
 
 ```powershell
-Set-Location 'C:\Users\匡溯昀\Desktop\本地工作流\SuyunCraft'
+Set-Location 'C:\Users\%USERPROFILE%\Desktop\本地工作流\SuyunCraft'
 .\build.ps1 -Tests
 .\tests\RegressionTests.exe --ui-smoke
 .\package.ps1
