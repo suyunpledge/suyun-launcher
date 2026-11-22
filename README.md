@@ -2,6 +2,13 @@
 
 A lightweight Minecraft Java Edition launcher for Windows, built on .NET Framework 4.8 with zero external dependencies. Supports vanilla and Fabric, offline profiles, dual download sources (official + BMCLAPI), version isolation, save-instance management, and log capture.
 
+[![C#](https://img.shields.io/badge/C%23-512BD4?logo=dotnet&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
+[![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](LICENSE)
+
+**English** · [中文](docs/README.zh-CN.md)
+
 > Current version: 1.10 · 256 offline regression checks + 16 UI checks passing · single `csc.exe` build, no NuGet required.
 
 ## Feature Highlights
@@ -77,3 +84,7 @@ No NuGet packages or third-party runtimes. The build script uses the C# compiler
 ## Backups & History
 
 Pre-change snapshots live under `backup/before-*`. The audit trail is in `AUDIT-2026-10-21.md`; ongoing handoff notes in `GLM53-HANDOFF.md`; save-isolation design in `SAVE-ISOLATION.md`; mod manager notes in `MODS.md`.
+
+## License
+
+The original launcher, AI mod, and bridge code are available under the [MIT](LICENSE) license. Minecraft and external dependencies are governed by their own terms.

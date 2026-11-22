@@ -2,6 +2,13 @@
 
 面向 Windows 的 Minecraft Java 版启动器，运行于 .NET Framework 4.8。支持原版、Fabric、离线玩家、官方与 BMCLAPI 下载源、版本隔离及日志捕获。
 
+[![C#](https://img.shields.io/badge/C%23-512BD4?logo=dotnet&logoColor=white)](https://learn.microsoft.com/dotnet/csharp/)
+[![Java 21](https://img.shields.io/badge/Java-21-ED8B00?logo=openjdk&logoColor=white)](https://openjdk.org/)
+[![Python 3.10+](https://img.shields.io/badge/Python-3.10%2B-3776AB?logo=python&logoColor=white)](https://www.python.org/)
+[![License: MIT](https://img.shields.io/badge/license-MIT-blue)](../LICENSE)
+
+[English](../README.md) · **中文**
+
 1.10 启动与可靠性专项：下载改为边写边算哈希（SHA1/SHA256 流式校验），完成后不再重读整份文件；同一下载目标在网络请求前先做大小/哈希格式与冲突校验。取消令牌贯穿下载、文件哈希、Java 探测、native 解压、元数据竞速与备份导出全链路，忙时主页按钮变为「取消操作」（Esc 同效）。Java 版本探测按文件指纹缓存，重复启动不再反复起进程探测，卡住的探测随取消终止。存档环境删除改走跨进程维护门与 `.deleting-*` 退位目录，被占用时可恢复；环境备份全程持有环境锁与世界 `session.lock`，游戏运行中拒绝导出，保留空目录、排除运行锁、导出文件名唯一、支持中途取消并清理残留。重新打开启动器后，所选环境会重新锁定绑定的游戏版本。校验缓存读写与报告保存移出界面线程，缓存记录严格校验且设条目上限；游戏日志队列有界、日志文件 10 MB 轮转。验证：256 项离线回归与 16 项界面检查通过；未进入真实 Minecraft 验证。
 
 AI 模组升级到 0.5.0（指令与战斗）：新增 `command` 动作——AI 可发送白名单根命令（time/weather/gamemode/difficulty/tp/effect，双侧校验字符集与参数上限），配置 `allowCommands=true` 启用；新增 `attack` 动作与 `/scai fight` 本地命令——锁定 8 格内最近敌对生物平滑追踪、冷却挥击、自动追击与目标切换，仅攻击敌对生物，低生命/目标逃离自动停止，配置 `allowCombat=true` 启用；环境摘要上报最近敌对生物类型与距离。验证：19 项命令白名单、27 项桥接、116 蓝图、14 对话、19 运动、202 启动器回归与 16 项界面检查通过；尚未进入真实 Minecraft 验证。详见 [AI 模组说明](ai-mod/README.md)。在设置页重新点击「安装 AI 模组」并重启游戏生效。
@@ -80,3 +87,7 @@ Java 选择优先匹配版本元数据中的 `javaVersion.majorVersion`。旧版
 运行 `package.ps1` 可生成源码与程序 ZIP，不包含测试缓存和旧版备份。
 
 原始源码和程序位于 `backup/before-audit-*`。详细问题与验证结果见 `AUDIT-2026-10-21.md`。
+
+## 许可证
+
+启动器、AI 模组与桥接服务的原创代码采用 [MIT](../LICENSE) 许可证。Minecraft 及外部依赖各自适用其条款。
